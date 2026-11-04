@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>商业罗盘</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <h1>商业罗盘</h1>
+  <p class="hint">这是临时测试页，用来验证注册登录流程。正式的手机网页完成后会替换它。</p>
+
+  <section id="signed-in" class="hidden">
+    <h2>当前账号</h2>
+    <p id="who"></p>
+    <div class="row">
+      <button id="resend" class="secondary hidden">重新发送验证邮件</button>
+      <button id="logout" class="secondary">退出登录</button>
+    </div>
+  </section>
+
+  <section id="signed-out">
+    <h2>登录</h2>
+    <form id="login-form">
+      <input name="email" type="email" placeholder="邮箱" autocomplete="email" required>
+      <input name="password" type="password" placeholder="密码" autocomplete="current-password" required>
+      <button type="submit">登录</button>
+    </form>
+    <p class="hint"><a href="/reset-password">忘记密码？</a></p>
+
+    <h2>注册</h2>
+    <form id="register-form">
+      <input name="email" type="email" placeholder="邮箱" autocomplete="email" required>
+      <input name="password" type="password" placeholder="密码（至少 8 位）" autocomplete="new-password" minlength="8" required>
+      <button type="submit">注册</button>
+    </form>
+  </section>
+
+  <p id="message" class="message"></p>
+
+  <script src="/app.js"></script>
+  <script>
+    const message = document.getElementById("message");
+
+    async function refresh() {
+      try {
+        const user = await api("/api/auth/me");
+        document.getElementById("who").textContent =
+          user.email + (user.email_verified ? "（邮箱已验证）" : "（邮箱未验证）");
+        document.getElementById("resend").classList.toggle("hidden", user.email_verified);
+        document.getElementById("signed-in").classList.remove("hidden");
+        document.getElementById("signed-out").classList.add("hidden");
+      } catch (_) {
+        document.getElementById("signed-in").classList.add("hidden");
+        document.getElementById("signed-out").classList.remove("hidden");
+      }
+    }
+
+    function handle(formId, path, onSuccess) {
+      document.getElementById(formId).addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = event.target;
+        try {
+          const data = await api(path, { email: form.email.value, password: form.password.value });
+          onSuccess(data, form);
+        } catch (error) {
+          show(message, error.message, false);
+        }
+      });
+    }
+
+    handle("login-form", "/api/auth/login", async () => {
+      show(message, "登录成功", true);
+      await refresh();
+    });
+    handle("register-form", "/api/auth/register", (data, form) => {
+      show(message, data.message + "。验证后用上面的表单登录。", true);
+      form.reset();
+    });
+
+    document.getElementById("logout").addEventListener("click", async () => {
+      await api("/api/auth/logout", {});
+      show(message, "已退出登录", true);
+      await refresh();
+    });
+    document.getElementById("resend").addEventListener("click", async () => {
+      try {
+        const data = await api("/api/auth/resend-verification", {});
+        show(message, data.message, true);
+      } catch (error) {
+        show(message, error.message, false);
+      }
+    });
+
+    refresh();
+  </script>
+</body>
+</html>

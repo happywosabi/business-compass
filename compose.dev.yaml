@@ -1,0 +1,8 @@
+# 本机开发专用的补充配置（服务器上不要加载）。
+# .env 里的 COMPOSE_FILE=compose.yaml:compose.dev.yaml 会让 docker compose 自动加载它。
+
+services:
+  db:
+    # 把数据库端口映射到本机（只允许本机访问），供 uv run pytest 和 alembic 使用
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"

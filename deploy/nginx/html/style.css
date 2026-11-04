@@ -1,0 +1,36 @@
+/* 临时测试页的样式，正式前端完成后删除 */
+* { box-sizing: border-box; }
+body {
+  margin: 0 auto;
+  max-width: 420px;
+  padding: 24px 16px;
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #1f2937;
+}
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 17px; margin: 24px 0 8px; }
+.hint { color: #6b7280; font-size: 13px; }
+form { display: flex; flex-direction: column; gap: 8px; }
+input {
+  padding: 10px 12px;
+  font-size: 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+button {
+  padding: 10px 12px;
+  font-size: 15px;
+  color: #fff;
+  background: #2563eb;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+button.secondary { color: #2563eb; background: #eff6ff; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.message { min-height: 1.6em; margin: 8px 0; }
+.message.ok { color: #047857; }
+.message.error { color: #b91c1c; }
+.hidden { display: none; }

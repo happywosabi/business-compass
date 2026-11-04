@@ -1,0 +1,72 @@
+"""FastAPI 应用入口。
+
+启动方式（Dockerfile 中）：uvicorn --factory app.main:create_app
+"""
+
+from __future__ import annotations
+
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from app.api.health import router as health_router
+from app.auth.router import router as auth_router
+from app.auth.service import AuthError
+from app.config import Settings, get_settings
+from app.db.session import create_engine, create_session_factory
+from app.logs import setup_logging
+from app.mail import MailSender, create_mail_sender
+
+logger = logging.getLogger(__name__)
+
+
+def _warn_about_settings(settings: Settings) -> None:
+    password = settings.postgres_password.get_secret_value()
+    if password in {"", "change-me"} and not settings.database_url:
+        logger.warning("数据库密码为空或仍是模板里的 change-me，请在 .env 中修改")
+    if settings.is_production:
+        if not settings.session_cookie_secure:
+            logger.warning("生产环境应设置 SESSION_COOKIE_SECURE=true（需要先启用 HTTPS）")
+        if settings.mail_backend != "smtp":
+            logger.warning("生产环境的 MAIL_BACKEND 不是 smtp，用户将收不到邮件")
+        if not settings.app_base_url.startswith("https://"):
+            logger.warning("生产环境的 APP_BASE_URL 应以 https:// 开头")
+
+
+def create_app(settings: Settings | None = None, mail_sender: MailSender | None = None) -> FastAPI:
+    """创建应用。测试时可以传入自己的配置和邮件发送器。"""
+    settings = settings or get_settings()
+    setup_logging()
+    engine = create_engine(settings.sqlalchemy_url())
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        yield
+        await engine.dispose()
+
+    # 接口文档只在非生产环境开放
+    show_docs = not settings.is_production
+    app = FastAPI(
+        title="商业罗盘 API",
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url="/api/docs" if show_docs else None,
+        redoc_url=None,
+        openapi_url="/api/openapi.json" if show_docs else None,
+    )
+    app.state.settings = settings
+    app.state.engine = engine
+    app.state.session_factory = create_session_factory(engine)
+    app.state.mail_sender = mail_sender or create_mail_sender(settings)
+
+    @app.exception_handler(AuthError)
+    async def handle_auth_error(request: Request, error: AuthError) -> JSONResponse:
+        return JSONResponse(status_code=error.status_code, content={"detail": error.detail})
+
+    app.include_router(health_router)
+    app.include_router(auth_router)
+
+    _warn_about_settings(settings)
+    return app
