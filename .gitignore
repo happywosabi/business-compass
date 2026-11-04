@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# 密钥和本地配置
+.env
+
+# 编辑器
+.vscode/
+.idea/

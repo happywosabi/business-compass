@@ -1,0 +1,15 @@
+# 合理性检查的经验阈值（按业态）
+#
+# ！！注意：以下数值均为占位估计，尚未核实来源。上线前需逐项核实。
+#
+# 某项留空（null）时跳过对应检查。字段含义见 app/engine/checks.py 中的 CheckRules。
+
+industries:
+  drinks:
+    cost_ratio_min: 0.25              # 按单成本占售价的常见下限
+    cost_ratio_max: 0.45              # 按单成本占售价的常见上限
+    rent_ratio_max: 0.20              # 房租占营业额的上限
+    labor_ratio_max: 0.30             # 员工工资占营业额的上限
+    max_orders_per_staff_per_day: 150 # 每人每天最多能做多少单
+    ramp_first_month_max: 0.9         # 开业第一个月最多达到稳定期的多少
+    revenue_per_sqm_month_max: null   # 每平米每月营业额上限（暂无数据）

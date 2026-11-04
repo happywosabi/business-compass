@@ -1,0 +1,222 @@
+# 实体小店参数清单：中文名、单位、访谈阶段、问法
+#
+# 与 docs/商业档案数据结构.md 6.2、docs/AI访谈流程.md 第四节对应。
+# 修改问法不需要改代码；增删参数需要同时修改 app/engine/params.py。
+#
+# stage（访谈阶段）：
+#   basic   基本情况
+#   product 卖什么
+#   shop    铺面和装修
+#   costs   人和日常开销
+#   traffic 客流
+#   none    不主动问（使用默认值，用户可在档案卡片中修改）
+#
+# quick_required：快速测算的最少必填项（加上档案的"业态"共 8 项）
+# three_tier：建议问出悲观 / 乐观值的参数
+
+parameters:
+  # ---------------- 启动投入 ----------------
+  - key: startup.transfer_fee
+    label: 转让费
+    unit: 元
+    stage: shop
+    ask: 接这个铺面要付转让费吗？多少？
+
+  - key: startup.renovation
+    label: 装修
+    unit: 元
+    stage: shop
+    quick_required: true
+    three_tier: true
+    ask: 装修大概花多少？
+    ask_range: 装修最省和最超支的情况，大概分别多少？
+
+  - key: startup.equipment
+    label: 设备
+    unit: 元
+    stage: shop
+    quick_required: true
+    ask: 设备（机器、厨具、收银等）大概多少钱？
+
+  - key: startup.licenses
+    label: 证照杂费
+    unit: 元
+    stage: shop
+    ask: 办证、设计这些杂七杂八的费用大概多少？
+
+  - key: startup.opening_marketing
+    label: 开业营销
+    unit: 元
+    stage: shop
+    ask: 开业活动、宣传准备花多少？
+
+  - key: startup.renovation_months
+    label: 装修月数
+    unit: 月
+    stage: shop
+    three_tier: true
+    ask: 装修大概要几个月？
+
+  - key: startup.rent_free_months
+    label: 免租月数
+    unit: 月
+    stage: shop
+    ask: 房东给免租期吗？几个月？
+
+  - key: startup.deposit_months
+    label: 押金月数
+    unit: 月
+    stage: shop
+    ask: 房租押几个月？
+
+  - key: startup.initial_stock
+    label: 首批备货
+    unit: 元
+    stage: shop
+    ask: 第一批原料或货品大概花多少？
+
+  # ---------------- 收入 ----------------
+  - key: revenue.daily_orders
+    label: 日均单量
+    unit: 单/天
+    stage: traffic
+    quick_required: true
+    three_tier: true
+    ask: 生意稳定以后，一天大概能卖多少单？
+    ask_alternative: 附近同类店生意怎么样？中午高峰排队的人多吗？
+    ask_range: 生意差的时候一天能卖多少？好的时候呢？
+
+  - key: revenue.avg_ticket
+    label: 客单价
+    unit: 元
+    stage: product
+    quick_required: true
+    three_tier: true
+    ask: 平均每单大概卖多少钱？
+    ask_alternative: 主力产品打算定价多少？
+    ask_range: 生意差的时候和好的时候，平均每单分别大概多少钱？
+
+  - key: revenue.open_days
+    label: 每月营业天数
+    unit: 天
+    stage: costs
+    ask: 一个月大概开几天？
+
+  - key: revenue.channels
+    label: 渠道结构
+    stage: product
+    ask: 打算做外卖吗？外卖大概占几成？
+
+  - key: revenue.opening_month
+    label: 开业月份
+    unit: 月
+    stage: basic
+    ask: 打算几月开业？
+
+  - key: revenue.ramp
+    label: 爬坡系数
+    stage: none
+
+  - key: revenue.seasonality
+    label: 季节系数
+    stage: none
+
+  # ---------------- 变动成本 ----------------
+  - key: variable_cost.unit_cost
+    label: 按单成本
+    unit: 元/单
+    stage: product
+    three_tier: true
+    ask: 一单的原料加包装，成本大概多少？
+    ask_range: 原料便宜和贵的时候，一单成本大概分别多少？
+
+  - key: variable_cost.payment_fee_rate
+    label: 支付手续费率
+    unit: 比例
+    stage: none
+
+  - key: variable_cost.tax_rate
+    label: 综合税费率
+    unit: 比例
+    stage: none
+
+  # ---------------- 固定成本 ----------------
+  - key: fixed_cost.rent
+    label: 房租（含物业）
+    unit: 元/月
+    stage: shop
+    quick_required: true
+    three_tier: true
+    ask: 铺面每月租金多少（含物业费）？
+    ask_range: 还没谈定的话，租金大概在什么范围？
+
+  - key: fixed_cost.rent_increase_rate
+    label: 租金递增比例
+    unit: 比例
+    stage: shop
+    ask: 合同里房租怎么涨？比如每几年涨多少？
+
+  - key: fixed_cost.rent_increase_every_years
+    label: 租金递增周期
+    unit: 年
+    stage: none
+
+  - key: fixed_cost.staff
+    label: 员工
+    unit: 元/月
+    stage: costs
+    quick_required: true
+    ask: 要请几个人？每人每月工资大概多少（含社保）？
+
+  - key: fixed_cost.owner_salary
+    label: 老板工资
+    unit: 元/月
+    stage: costs
+    quick_required: true
+    ask: 你自己会在店里干活吗？如果不开店去上班，一个月能挣多少？
+
+  - key: fixed_cost.utilities
+    label: 水电燃气
+    unit: 元/月
+    stage: costs
+    three_tier: true
+    ask: 水电燃气每月大概多少？
+
+  - key: fixed_cost.other_fixed
+    label: 其他固定支出
+    unit: 元/月
+    stage: none
+
+  # ---------------- 门店 ----------------
+  - key: store.location_type
+    label: 位置类型
+    stage: basic
+    ask: 大概开在什么位置——商场、街边、学校旁、小区门口？
+
+  - key: store.area_sqm
+    label: 面积
+    unit: ㎡
+    stage: shop
+    ask: 铺面多大面积？
+
+  - key: store.seats
+    label: 座位数
+    unit: 个
+    stage: shop
+    ask: 大概放几个座位？
+
+  - key: store.turns_per_day
+    label: 每天可翻台次数
+    unit: 次
+    stage: none
+
+  - key: store.delivery_capacity
+    label: 外卖每日出餐能力
+    unit: 单/天
+    stage: none
+
+  - key: store.lease_months
+    label: 租约期限
+    unit: 月
+    stage: shop
+    ask: 租约签几年？
