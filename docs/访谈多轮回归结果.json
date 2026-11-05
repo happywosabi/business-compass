@@ -1,0 +1,255 @@
+{
+  "model": "deepseek-flash",
+  "cases": [
+    {
+      "case": "多轮-1",
+      "passed": true,
+      "turns": 6,
+      "actual": {
+        "revenue.avg_ticket": 15.0,
+        "revenue.daily_orders": 250.0,
+        "fixed_cost.rent": 10000.0,
+        "startup.renovation": 75000.0,
+        "startup.equipment": 60000.0,
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15,
+        "revenue.daily_orders": 250,
+        "fixed_cost.rent": 10000,
+        "startup.renovation": 75000,
+        "startup.equipment": 60000,
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 239934,
+      "output_tokens": 1778,
+      "seconds": 24.86
+    },
+    {
+      "case": "多轮-2",
+      "passed": true,
+      "turns": 6,
+      "actual": {
+        "revenue.avg_ticket": 15.0,
+        "revenue.daily_orders": 250.0,
+        "fixed_cost.rent": 10000.0,
+        "startup.renovation": 75000.0,
+        "startup.equipment": 60000.0,
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15,
+        "revenue.daily_orders": 250,
+        "fixed_cost.rent": 10000,
+        "startup.renovation": 75000,
+        "startup.equipment": 60000,
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 108274,
+      "output_tokens": 1364,
+      "seconds": 17.1
+    },
+    {
+      "case": "多轮-3",
+      "passed": true,
+      "turns": 6,
+      "actual": {
+        "revenue.avg_ticket": 15.0,
+        "revenue.daily_orders": 250.0,
+        "fixed_cost.rent": 10000.0,
+        "startup.renovation": 75000.0,
+        "startup.equipment": 60000.0,
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15,
+        "revenue.daily_orders": 250,
+        "fixed_cost.rent": 10000,
+        "startup.renovation": 75000,
+        "startup.equipment": 60000,
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 127595,
+      "output_tokens": 1175,
+      "seconds": 16.46
+    },
+    {
+      "case": "多轮-4",
+      "passed": true,
+      "turns": 6,
+      "actual": {
+        "revenue.avg_ticket": 15.0,
+        "revenue.daily_orders": 250.0,
+        "fixed_cost.rent": 10000.0,
+        "startup.renovation": 75000.0,
+        "startup.equipment": 60000.0,
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15,
+        "revenue.daily_orders": 250,
+        "fixed_cost.rent": 10000,
+        "startup.renovation": 75000,
+        "startup.equipment": 60000,
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 223518,
+      "output_tokens": 1878,
+      "seconds": 28.26
+    },
+    {
+      "case": "多轮-5",
+      "passed": true,
+      "turns": 6,
+      "actual": {
+        "revenue.avg_ticket": 15.0,
+        "revenue.daily_orders": 250.0,
+        "fixed_cost.rent": 10000.0,
+        "startup.renovation": 75000.0,
+        "startup.equipment": 60000.0,
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15,
+        "revenue.daily_orders": 250,
+        "fixed_cost.rent": 10000,
+        "startup.renovation": 75000,
+        "startup.equipment": 60000,
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 134621,
+      "output_tokens": 1902,
+      "seconds": 20.62
+    },
+    {
+      "case": "多轮-6",
+      "passed": true,
+      "turns": 6,
+      "actual": {
+        "revenue.avg_ticket": 15.0,
+        "revenue.daily_orders": 250.0,
+        "fixed_cost.rent": 10000.0,
+        "startup.renovation": 75000.0,
+        "startup.equipment": 60000.0,
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15,
+        "revenue.daily_orders": 250,
+        "fixed_cost.rent": 10000,
+        "startup.renovation": 75000,
+        "startup.equipment": 60000,
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 129430,
+      "output_tokens": 1401,
+      "seconds": 20.5
+    },
+    {
+      "case": "多轮-7",
+      "passed": true,
+      "turns": 6,
+      "actual": {
+        "revenue.avg_ticket": 15.0,
+        "revenue.daily_orders": 250.0,
+        "fixed_cost.rent": 10000.0,
+        "startup.renovation": 75000.0,
+        "startup.equipment": 60000.0,
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15,
+        "revenue.daily_orders": 250,
+        "fixed_cost.rent": 10000,
+        "startup.renovation": 75000,
+        "startup.equipment": 60000,
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 252767,
+      "output_tokens": 1387,
+      "seconds": 23.14
+    },
+    {
+      "case": "多轮-8",
+      "passed": true,
+      "turns": 6,
+      "actual": {
+        "revenue.avg_ticket": 15.0,
+        "revenue.daily_orders": 250.0,
+        "fixed_cost.rent": 10000.0,
+        "startup.renovation": 75000.0,
+        "startup.equipment": 60000.0,
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15,
+        "revenue.daily_orders": 250,
+        "fixed_cost.rent": 10000,
+        "startup.renovation": 75000,
+        "startup.equipment": 60000,
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 246613,
+      "output_tokens": 2008,
+      "seconds": 25.93
+    },
+    {
+      "case": "多轮-9",
+      "passed": true,
+      "turns": 6,
+      "actual": {
+        "revenue.avg_ticket": 15.0,
+        "revenue.daily_orders": 250.0,
+        "fixed_cost.rent": 10000.0,
+        "startup.renovation": 75000.0,
+        "startup.equipment": 60000.0,
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15,
+        "revenue.daily_orders": 250,
+        "fixed_cost.rent": 10000,
+        "startup.renovation": 75000,
+        "startup.equipment": 60000,
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 157107,
+      "output_tokens": 1557,
+      "seconds": 18.9
+    },
+    {
+      "case": "多轮-10",
+      "passed": true,
+      "turns": 6,
+      "actual": {
+        "revenue.avg_ticket": 15.0,
+        "revenue.daily_orders": 250.0,
+        "fixed_cost.rent": 10000.0,
+        "startup.renovation": 75000.0,
+        "startup.equipment": 60000.0,
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15,
+        "revenue.daily_orders": 250,
+        "fixed_cost.rent": 10000,
+        "startup.renovation": 75000,
+        "startup.equipment": 60000,
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 219899,
+      "output_tokens": 1659,
+      "seconds": 26.72
+    }
+  ]
+}

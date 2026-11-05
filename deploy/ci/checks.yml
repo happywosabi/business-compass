@@ -1,0 +1,50 @@
+name: Checks
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: business_compass
+          POSTGRES_PASSWORD: ci-test-password
+          POSTGRES_DB: business_compass_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U business_compass"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://business_compass:ci-test-password@localhost:5432/business_compass_test
+      DATABASE_URL: postgresql+asyncpg://business_compass:ci-test-password@localhost:5432/business_compass_migration_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.16"
+      - run: uv sync --frozen
+      - run: uv run ruff check . && uv run ruff format --check .
+      - run: uv run pytest -q
+      - name: Migrate an empty database and check schema
+        run: |
+          PGPASSWORD=ci-test-password createdb -h localhost -U business_compass business_compass_migration_test
+          uv run alembic upgrade head
+          uv run alembic check
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

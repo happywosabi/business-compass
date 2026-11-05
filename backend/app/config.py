@@ -58,9 +58,21 @@ class Settings(BaseSettings):
     # ---- 大模型（AI 访谈阶段使用）----
     deepseek_api_key: SecretStr = SecretStr("")
     deepseek_base_url: str = "https://api.deepseek.com"
+    interview_model: str = "deepseek-flash"
+    report_model: str = "deepseek-v4-pro"
+    ai_daily_quota: int = 50
+    ai_timeout_seconds: int = 60
+    ai_run_seconds: int = 240
+    ai_max_output_tokens: int = 3000
+    ai_report_max_tokens: int = 8000
     dashscope_api_key: SecretStr = SecretStr("")
     dashscope_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     embedding_model: str = "qwen3.7-text-embedding-flash"
+
+    # 可选热点聚合服务；未配置时仅使用固定日历和门店选题
+    hotapi_base_url: str = ""
+    hotapi_channels: str = "weibo,zhihu"
+    worker_interval_seconds: int = 7200
 
     @property
     def is_production(self) -> bool:

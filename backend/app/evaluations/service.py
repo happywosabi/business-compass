@@ -60,6 +60,7 @@ async def create_evaluation(
         raise HTTPException(409, "档案已更新，请刷新后再测算")
     template = load_template(current.template_key)
     params = PhysicalStoreParams.model_validate(current.parameters)
+    profiles.validate_ranges(params)
     missing = template.quick_missing(params)
     if missing:
         names = "、".join(template.specs[k].label for k in missing)
@@ -107,7 +108,9 @@ async def try_changes(
     if evaluation_id:
         params = (await get_snapshot(db, profile, evaluation_id)).parameters
     try:
-        return what_if(PhysicalStoreParams.model_validate(params), changes)
+        baseline = PhysicalStoreParams.model_validate(params)
+        profiles.validate_ranges(baseline.with_values(changes))
+        return what_if(baseline, changes)
     except (KeyError, ValidationError, ValueError) as error:
         raise HTTPException(
             422, f"无法试算，请检查参数是否齐全和有效：{str(error)[:800]}"

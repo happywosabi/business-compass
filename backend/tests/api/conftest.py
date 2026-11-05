@@ -52,6 +52,8 @@ async def test_settings(anyio_backend) -> Settings:
     """准备测试库：不存在则创建，然后按当前表定义重建所有表。"""
     settings = _test_settings()
     url = make_url(settings.database_url)
+    if not url.database or not url.database.endswith("_test"):
+        pytest.fail("TEST_DATABASE_URL 必须以 _test 结尾，禁止重建其他数据库")
     try:
         admin = create_async_engine(
             url.set(database="postgres"), isolation_level="AUTOCOMMIT", poolclass=NullPool
@@ -83,6 +85,7 @@ async def app(test_settings):
     async with application.state.engine.begin() as conn:
         await conn.execute(text("TRUNCATE users, sessions, email_tokens CASCADE"))
     yield application
+    await application.state.ai_hub.close()
     await application.state.engine.dispose()
 
 

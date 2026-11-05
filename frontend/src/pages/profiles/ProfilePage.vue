@@ -269,6 +269,9 @@ onScopeDispose(() => clearTimeout(flash))
             ><router-link class="text-link" :to="`/profiles/${profile.id}/results`"
               >查看历史测算</router-link
             >
+            <router-link class="text-link" :to="`/profiles/${profile.id}/interview`"
+              >和 AI 聊聊，帮我填写 ↗</router-link
+            >
             <p class="sub">所有修改自动留痕，只有你能查看。</p>
           </section>
           <section v-if="profile.derived_stale_keys.length" class="bc-card stale-card">

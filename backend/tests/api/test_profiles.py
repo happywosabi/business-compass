@@ -232,3 +232,43 @@ async def test_invalid_update_leaves_database_untouched(owner, db):
     )
     assert response.status_code == 422
     assert await db.scalar(select(func.count()).select_from(ParameterChange)) == 0
+
+
+async def test_rejects_reversed_cost_tiers_without_writing(client):
+    await register(client)
+    await login(client)
+    profile = await create_profile(client)
+    path = f"/api/profiles/{profile['id']}"
+    invalid = await client.patch(
+        path + "/parameters",
+        json={
+            "revision": 1,
+            "changes": {
+                "startup.renovation": {"base": 75000, "pessimistic": 70000, "optimistic": 80000}
+            },
+        },
+    )
+    assert invalid.status_code == 422
+    assert "三档方向" in invalid.json()["detail"]
+    assert (await client.get(path)).json()["revision"] == 1
+
+
+async def test_longer_rent_increase_interval_is_favorable_and_opening_month_unordered(client):
+    await register(client)
+    await login(client)
+    profile = await create_profile(client)
+    response = await client.patch(
+        f"/api/profiles/{profile['id']}/parameters",
+        json={
+            "revision": 1,
+            "changes": {
+                "fixed_cost.rent_increase_every_years": {
+                    "base": 2,
+                    "pessimistic": 1,
+                    "optimistic": 3,
+                },
+                "revenue.opening_month": {"base": 6, "pessimistic": 12, "optimistic": 1},
+            },
+        },
+    )
+    assert response.status_code == 200, response.text

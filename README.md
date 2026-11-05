@@ -11,11 +11,13 @@
 - [x] 计算引擎（`backend/app/engine/`）：实体小店测算，纯计算，不依赖数据库和 AI
 - [x] 模板配置（`backend/app/templates/`）：饮品业态的问法、默认值、经验阈值（数值为占位，待核实）
 - [x] 项目骨架：Docker Compose、FastAPI、PostgreSQL、邮箱注册登录
-- [ ] AI 访谈
+- [x] AI 访谈后端：工具调用、消息持久化、配额、幂等与恢复
 - [x] 前端骨架（`frontend/`）：登录注册、验证邮箱、重置密码、我的、协议页；手机和桌面两套布局
 - [x] 档案、参数编辑、历史测算、现金曲线与临时试算页面
-- [ ] AI 访谈页面
-- [ ] 内容生成
+- [x] AI 访谈页面、结果解读（数字核对失败时降级）
+- [x] 内容生成：日历/门店选题、朋友圈/小红书草稿与来源记录
+- [x] 后台任务：到期档案清理、可选热点采集
+- [ ] 公开上线验收：默认值来源、运营主体、HTTPS与真实手机/微信
 
 ## 用 Docker 启动
 
@@ -92,6 +94,10 @@ backend/
   app/auth/           注册、登录、会话
   app/profiles/       档案、参数、修改记录
   app/evaluations/    不可变快照与临时试算
+  app/interview/      AI访谈、工具调用、SSE
+  app/llm/            模型适配、配额、报告核对
+  app/content/        选题、草稿与可选热点
+  app/worker.py       到期档案清理与热点采集
   app/mail/           邮件发送
   app/db/             数据库表定义和迁移
   tests/              测试
@@ -99,3 +105,23 @@ frontend/             前端网页（Vue 3 + Vant）
 deploy/nginx/         Nginx 配置
 compose.yaml          Docker Compose
 ```
+
+
+## AI 与内容配置
+
+配置 `.env` 中的 `DEEPSEEK_API_KEY`、`INTERVIEW_MODEL` 和 `REPORT_MODEL`；AI 功能需要已验证邮箱，手工参数编辑和测算不依赖 AI。模型名以账号 `/models` 返回为准。
+
+访谈断线后可恢复持久化历史，运行中的请求可取消。幂等编号防止同次请求重复写入；服务重启后中断的任务会到期失败，已保存参数保留。API 当前按单进程部署，后台任务不自动重放。
+
+内容页在 `/content`。可选热点接入需配置自部署 DailyHotApi 的 `HOTAPI_BASE_URL`，worker 每两小时读取；未配置时仍能使用日历和门店日常选题。热点仅使用聚合源实际返回的标题，向量服务用于近似去重。
+
+## 备份与恢复验证
+
+```bash
+deploy/scripts/backup.sh /安全目录/business-compass.dump
+deploy/scripts/verify-backup.sh /安全目录/business-compass.dump
+```
+
+验证脚本只恢复到临时数据库并自动删除它，不修改在线库。备份包含用户数据，应限制读取权限并按保留策略存储。上线细节和当前限制见 [部署与验收](docs/部署与验收.md)。
+
+GitHub Actions 配置暂以 [CI模板](deploy/ci/checks.yml) 交付；当前凭据缺少 `workflow` 权限，取得权限后移至 `.github/workflows/checks.yml` 启用。

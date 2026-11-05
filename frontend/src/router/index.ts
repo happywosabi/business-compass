@@ -54,6 +54,11 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '商业档案', nav: 'home', depth: 2 },
       },
       {
+        path: 'profiles/:id/interview',
+        component: () => import('@/pages/interview/InterviewPage.vue'),
+        meta: { title: 'AI 访谈', nav: 'home', depth: 3 },
+      },
+      {
         path: 'profiles/:id/results',
         component: () => import('@/pages/results/ResultHistoryPage.vue'),
         meta: { title: '历史测算', nav: 'home', depth: 3 },
@@ -62,6 +67,11 @@ const routes: RouteRecordRaw[] = [
         path: 'profiles/:id/results/:eid',
         component: () => import('@/pages/results/ResultPage.vue'),
         meta: { title: '测算结果', nav: 'home', depth: 3 },
+      },
+      {
+        path: 'content',
+        component: () => import('@/pages/content/ContentPage.vue'),
+        meta: { title: '内容创作', nav: 'content', depth: 1 },
       },
       {
         path: 'me',

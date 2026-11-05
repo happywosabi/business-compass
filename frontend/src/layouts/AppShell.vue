@@ -52,17 +52,31 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible
         <span class="lbl">商业罗盘</span>
       </RouterLink>
       <nav class="snav" aria-label="主导航">
-        <RouterLink class="sitem" to="/" title="档案" :aria-current="activeNav === 'home' ? 'page' : undefined">
+        <RouterLink
+          class="sitem"
+          to="/"
+          title="档案"
+          :aria-current="activeNav === 'home' ? 'page' : undefined"
+        >
           <AppIcon name="profiles" />
           <span class="lbl">档案</span>
         </RouterLink>
-        <span class="sitem off" title="内容（即将上线）">
+        <RouterLink
+          class="sitem"
+          to="/content"
+          title="内容"
+          :aria-current="activeNav === 'content' ? 'page' : undefined"
+        >
           <AppIcon name="content" />
           <span class="lbl">内容</span>
-          <span class="soon lbl">即将上线</span>
-        </span>
+        </RouterLink>
       </nav>
-      <RouterLink class="suser" to="/me" title="我的账号" :aria-current="activeNav === 'me' ? 'page' : undefined">
+      <RouterLink
+        class="suser"
+        to="/me"
+        title="我的账号"
+        :aria-current="activeNav === 'me' ? 'page' : undefined"
+      >
         <span class="avatar" aria-hidden="true">{{ initial }}</span>
         <span class="who lbl">
           <span class="email">{{ auth.user?.email }}</span>
@@ -76,7 +90,8 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible
         <div v-if="auth.user && !auth.isVerified" class="verify-bar" role="status">
           <AppIcon name="mail" :size="18" />
           <span class="vb-text">
-            邮箱还没验证。打开 <b>{{ auth.user.email }}</b> 收到的邮件，点里面的链接，验证后就能用 AI 功能。
+            邮箱还没验证。打开 <b>{{ auth.user.email }}</b> 收到的邮件，点里面的链接，验证后就能用
+            AI 功能。
           </span>
           <button type="button" class="text-link vb-btn" :disabled="resending" @click="resend">
             {{ resending ? '正在发送…' : '重新发送' }}
@@ -96,6 +111,9 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible
         <template #icon><AppIcon name="profiles" :size="22" /></template>
         档案
       </van-tabbar-item>
+      <van-tabbar-item name="content" to="/content"
+        ><template #icon><AppIcon name="content" :size="22" /></template>内容</van-tabbar-item
+      >
       <van-tabbar-item name="me" to="/me">
         <template #icon><AppIcon name="user" :size="22" /></template>
         我的
@@ -238,7 +256,8 @@ a.sitem:hover,
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px
+    max(16px, env(safe-area-inset-left, 0px));
   background: var(--accent-soft);
   color: var(--accent-ink);
   border-bottom: 1px solid var(--accent-line);

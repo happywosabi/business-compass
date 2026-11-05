@@ -8,6 +8,7 @@ import PageHead from '@/components/PageHead.vue'
 import CompassMark from '@/components/CompassMark.vue'
 import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import CashChart from '@/components/CashChart.vue'
+import ReportPanel from '@/components/ReportPanel.vue'
 import WhatIfPanel from '@/components/WhatIfPanel.vue'
 import SourceTag from '@/components/SourceTag.vue'
 import { money, wan, payback, monthLabel, fundingRange } from '@/utils/finance'
@@ -33,14 +34,18 @@ const requiredOrders = computed(
   () => snapshot.value?.results.thresholds['revenue.daily_orders']?.value,
 )
 const parameters = computed(() =>
-  Object.entries(snapshot.value?.parameters ?? {}).filter(([section]) => ['startup', 'revenue', 'variable_cost', 'fixed_cost', 'store'].includes(section)).flatMap(([section, entries]) =>
-    Object.entries(entries ?? {})
-      .filter(([, v]) => v)
-      .map(([name, v]) => ({
-        key: `${section}.${name}`,
-        value: v as { base: unknown; source: string; note?: string | null },
-      })),
-  ),
+  Object.entries(snapshot.value?.parameters ?? {})
+    .filter(([section]) =>
+      ['startup', 'revenue', 'variable_cost', 'fixed_cost', 'store'].includes(section),
+    )
+    .flatMap(([section, entries]) =>
+      Object.entries(entries ?? {})
+        .filter(([, v]) => v)
+        .map(([name, v]) => ({
+          key: `${section}.${name}`,
+          value: v as { base: unknown; source: string; note?: string | null },
+        })),
+    ),
 )
 const titleFor = (key: string) => template.value?.fields.find((f) => f.key === key)?.label ?? key
 async function load() {
@@ -322,9 +327,7 @@ onMounted(load)
               <span>{{ sources ? '收起 −' : '展开 +' }}</span>
             </button>
             <p class="sub">
-              {{
-                snapshot.results.default_keys.length
-              }}
+              {{ snapshot.results.default_keys.length }}
               项使用默认值。默认值是暂用假设，建议核实后再决定投入。
             </p>
             <div v-if="sources" class="snapshot-parameters">
@@ -337,6 +340,11 @@ onMounted(load)
               </article>
             </div>
           </section>
+          <ReportPanel
+            :key="snapshot.id"
+            :profile-id="profile.id"
+            :evaluation-id="snapshot.id"
+          />
         </div>
         <aside class="result-aside">
           <WhatIfPanel

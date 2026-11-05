@@ -1,0 +1,179 @@
+{
+  "model": "deepseek-flash",
+  "cases": [
+    {
+      "case": "精确客单",
+      "passed": true,
+      "actual": {
+        "revenue.avg_ticket": 15.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15
+      },
+      "status": "succeeded",
+      "input_tokens": 14350,
+      "output_tokens": 235,
+      "seconds": 3.78
+    },
+    {
+      "case": "模糊客单",
+      "passed": true,
+      "actual": {
+        "revenue.avg_ticket": 15.0
+      },
+      "expected": {
+        "revenue.avg_ticket": 15
+      },
+      "status": "succeeded",
+      "input_tokens": 24423,
+      "output_tokens": 492,
+      "seconds": 6.29
+    },
+    {
+      "case": "模糊装修",
+      "passed": true,
+      "actual": {
+        "startup.renovation": 75000.0
+      },
+      "expected": {
+        "startup.renovation": 75000
+      },
+      "status": "succeeded",
+      "input_tokens": 24423,
+      "output_tokens": 523,
+      "seconds": 5.85
+    },
+    {
+      "case": "模糊房租",
+      "passed": true,
+      "actual": {
+        "fixed_cost.rent": 11000.0
+      },
+      "expected": {
+        "fixed_cost.rent": 11000
+      },
+      "status": "succeeded",
+      "input_tokens": 14367,
+      "output_tokens": 256,
+      "seconds": 3.42
+    },
+    {
+      "case": "单量范围",
+      "passed": true,
+      "actual": {
+        "revenue.daily_orders": 250.0
+      },
+      "expected": {
+        "revenue.daily_orders": 250
+      },
+      "status": "succeeded",
+      "input_tokens": 24438,
+      "output_tokens": 476,
+      "seconds": 6.8
+    },
+    {
+      "case": "一次多项",
+      "passed": true,
+      "actual": {
+        "fixed_cost.rent": 12000.0,
+        "startup.equipment": 60000.0,
+        "startup.renovation": 80000.0,
+        "revenue.avg_ticket": 15.0
+      },
+      "expected": {
+        "fixed_cost.rent": 12000,
+        "startup.equipment": 60000,
+        "startup.renovation": 80000,
+        "revenue.avg_ticket": 15
+      },
+      "status": "succeeded",
+      "input_tokens": 23594,
+      "output_tokens": 448,
+      "seconds": 5.12
+    },
+    {
+      "case": "员工",
+      "passed": true,
+      "actual": {
+        "fixed_cost.owner_salary": 6000.0
+      },
+      "expected": {
+        "fixed_cost.owner_salary": 6000
+      },
+      "status": "succeeded",
+      "input_tokens": 9708,
+      "output_tokens": 165,
+      "seconds": 2.3
+    },
+    {
+      "case": "修正",
+      "passed": true,
+      "actual": {
+        "fixed_cost.rent": 10000.0
+      },
+      "expected": {
+        "fixed_cost.rent": 10000
+      },
+      "status": "succeeded",
+      "input_tokens": 14276,
+      "output_tokens": 192,
+      "seconds": 2.47
+    },
+    {
+      "case": "不知道",
+      "passed": true,
+      "actual": {
+        "revenue.daily_orders": null
+      },
+      "expected": {
+        "revenue.daily_orders": null
+      },
+      "status": "succeeded",
+      "input_tokens": 4377,
+      "output_tokens": 58,
+      "seconds": 1.08
+    },
+    {
+      "case": "默认确认",
+      "passed": true,
+      "actual": {
+        "revenue.open_days": 30.0
+      },
+      "expected": {
+        "revenue.open_days": 30
+      },
+      "status": "succeeded",
+      "input_tokens": 15824,
+      "output_tokens": 170,
+      "seconds": 3.01
+    },
+    {
+      "case": "负数",
+      "passed": true,
+      "actual": {
+        "fixed_cost.rent": null
+      },
+      "expected": {
+        "fixed_cost.rent": null
+      },
+      "status": "succeeded",
+      "input_tokens": 9648,
+      "output_tokens": 114,
+      "seconds": 2.43
+    },
+    {
+      "case": "客流产能",
+      "passed": true,
+      "actual": {
+        "revenue.daily_orders": null
+      },
+      "expected": {
+        "revenue.daily_orders": null
+      },
+      "status": "succeeded",
+      "input_tokens": 14677,
+      "output_tokens": 272,
+      "seconds": 3.54
+    }
+  ]
+}

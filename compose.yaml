@@ -49,6 +49,18 @@ services:
       retries: 3
       start_period: 20s
 
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      api:
+        condition: service_healthy
+
   nginx:
     # 先用 Node 把前端网页打包，再放进 Nginx 镜像（见 frontend/Dockerfile）
     build: ./frontend

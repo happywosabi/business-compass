@@ -134,11 +134,39 @@ def user_parameters(params: PhysicalStoreParams) -> PhysicalStoreParams:
     )
 
 
+def validate_ranges(params: PhysicalStoreParams) -> None:
+    """收入悲观取低值，成本悲观取高值；避免情景名称与实际风险相反。"""
+    for key in ALL_KEYS:
+        value = params.get(key)
+        if value is None or not isinstance(value.base, (int, float)):
+            continue
+        # 开业月份没有单调的好坏方向；涨租间隔越长则越有利。
+        if key == "revenue.opening_month":
+            continue
+        high_is_good = key.startswith("revenue.") or key in {
+            "startup.rent_free_months",
+            "fixed_cost.rent_increase_every_years",
+        }
+        if not high_is_good and not key.startswith(("startup.", "variable_cost.", "fixed_cost.")):
+            continue
+        for scenario in ("pessimistic", "optimistic"):
+            tier = getattr(value, scenario)
+            if tier is None:
+                continue
+            lower = high_is_good == (scenario == "pessimistic")
+            if (lower and tier > value.base) or (not lower and tier < value.base):
+                label = load_template().specs[key].label
+                raise HTTPException(
+                    422, f"{label}三档方向有误：收入悲观较低、成本悲观较高；请确认后调整"
+                )
+
+
 async def create_profile(db: AsyncSession, user_id: UUID, body: ProfileCreate) -> Profile:
     template = load_template(body.template_key)
     if body.industry not in template.industry_codes:
         raise HTTPException(422, "目前支持饮品店，其他业态正在准备中")
     params = user_parameters(body.parameters)
+    validate_ranges(params)
     profile = Profile(
         user_id=user_id,
         template_version=template.version,
@@ -178,7 +206,6 @@ async def write_profile(
     )
     changed = result.scalar_one_or_none()
     if changed is None:
-        await db.rollback()
         raise HTTPException(409, "档案已在其他页面更新，请刷新后再保存；你的输入还在")
     return changed
 
@@ -200,6 +227,7 @@ async def edit_parameters(
     except (KeyError, ValidationError) as error:
         detail = str(error).split("For further information", 1)[0][:1200]
         raise HTTPException(422, f"参数不符合要求：{detail}") from error
+    validate_ranges(after)
     if source == "user_edit":
         after = after.with_values(
             {
@@ -218,7 +246,13 @@ async def edit_parameters(
 
 
 async def use_defaults(
-    db: AsyncSession, profile: Profile, revision: int, keys: list[str]
+    db: AsyncSession,
+    profile: Profile,
+    revision: int,
+    keys: list[str],
+    *,
+    commit: bool = True,
+    message_id: UUID | None = None,
 ) -> Profile:
     template = load_template(profile.template_key)
     before = PhysicalStoreParams.model_validate(profile.parameters)
@@ -234,7 +268,14 @@ async def use_defaults(
     except KeyError as error:
         raise HTTPException(422, "包含未知参数") from error
     return await edit_parameters(
-        db, profile, revision, changes, source="default", reason="用户确认使用默认值"
+        db,
+        profile,
+        revision,
+        changes,
+        source="default",
+        reason="用户确认使用默认值",
+        commit=commit,
+        message_id=message_id,
     )
 
 

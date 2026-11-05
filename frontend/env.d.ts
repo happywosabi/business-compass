@@ -11,7 +11,7 @@ declare module 'vue-router' {
     /** 已登录时不显示（登录、注册页），直接进入应用 */
     guestOnly?: boolean
     /** 对应底部导航 / 侧边栏的哪一项 */
-    nav?: 'home' | 'me'
+    nav?: 'home' | 'me' | 'content'
     /** 页面层级：手机上进入更深的页面从右边推入，返回时反向 */
     depth?: number
     /** 页面切换动画名称，由路由在每次跳转后设置 */
