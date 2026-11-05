@@ -30,6 +30,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(Text, unique=True)  # 统一转成小写后存储
     email_verified_at: Mapped[datetime | None] = _timestamp()
     password_hash: Mapped[str] = mapped_column(Text)  # Argon2id，不存密码原文
+    password_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     password_changed_at: Mapped[datetime] = _timestamp(
         nullable=False, default=utcnow, server_default=func.now()
     )
@@ -64,6 +65,7 @@ class UserSession(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     token_hash: Mapped[str] = mapped_column(Text, unique=True)
+    password_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     expires_at: Mapped[datetime] = _timestamp(nullable=False)
     created_at: Mapped[datetime] = _timestamp(
         nullable=False, default=utcnow, server_default=func.now()
@@ -84,6 +86,7 @@ class EmailToken(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     purpose: Mapped[str] = mapped_column(Text)
     token_hash: Mapped[str] = mapped_column(Text, unique=True)
+    password_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     expires_at: Mapped[datetime] = _timestamp(nullable=False)
     used_at: Mapped[datetime | None] = _timestamp()
     created_at: Mapped[datetime] = _timestamp(
@@ -273,3 +276,31 @@ class HotTopic(Base):
     sources: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     fetched_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
     __table_args__ = (Index(None, "safe", "fetched_at"),)
+
+
+class CalculationRun(Base):
+    """测算预算预约；失败、超时同样计入，独立于业务事务保存。"""
+
+    __tablename__ = "calculation_runs"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
+    __table_args__ = (Index(None, "user_id", "created_at"),)
+
+
+class HotCollectionRun(Base):
+    """公共热点预算与LLM/Embedding用量；所有触发方式共用。"""
+
+    __tablename__ = "hot_collection_runs"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    status: Mapped[str] = mapped_column(Text, default="running")
+    model: Mapped[str] = mapped_column(Text)
+    embedding_model: Mapped[str] = mapped_column(Text)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    embedding_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    llm_calls: Mapped[int] = mapped_column(Integer, default=0)
+    embedding_calls: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
+    finished_at: Mapped[datetime | None] = _timestamp()

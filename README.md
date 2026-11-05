@@ -29,6 +29,8 @@ docker compose up -d --build
 
 启动后访问：
 
+默认HTTP仅绑定本机。公网部署使用 [HTTPS生产配置](docs/部署与验收.md#https)，不要直接公开开发入口。
+
 | 地址 | 内容 |
 |---|---|
 | http://localhost:8080 | 网站 |

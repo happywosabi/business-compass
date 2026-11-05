@@ -17,7 +17,15 @@ async def test_docs_available_outside_production(client):
 
 
 async def test_docs_hidden_in_production(test_settings):
-    app = create_app(settings=test_settings.model_copy(update={"app_env": "production"}))
+    app = create_app(
+        settings=test_settings.model_copy(
+            update={
+                "app_env": "production",
+                "app_base_url": "https://testserver",
+                "session_cookie_secure": True,
+            }
+        )
+    )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as c:
         assert (await c.get("/api/docs")).status_code == 404
         assert (await c.get("/api/openapi.json")).status_code == 404

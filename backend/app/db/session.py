@@ -18,8 +18,8 @@ def create_engine(url: str) -> AsyncEngine:
     return create_async_engine(url, pool_pre_ping=True)
 
 
-def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
-    return async_sessionmaker(engine, expire_on_commit=False)
+def create_session_factory(engine: AsyncEngine, settings=None) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(engine, expire_on_commit=False, info={"settings": settings})
 
 
 async def get_db(request: Request) -> AsyncIterator[AsyncSession]:

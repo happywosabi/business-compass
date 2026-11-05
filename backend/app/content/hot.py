@@ -9,10 +9,10 @@ import re
 from datetime import timedelta
 
 import httpx
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text, update
 
 from app.db.base import utcnow
-from app.db.models import HotTopic
+from app.db.models import HotCollectionRun, HotTopic
 
 from .search import safe_url, search_news
 
@@ -37,37 +37,77 @@ def cosine(a, b):
     return sum(x * y for x, y in zip(a, b, strict=True)) / norm if norm else 0
 
 
-async def embed(settings, texts):
+async def embed(settings, texts, record=None):
     if not settings.dashscope_api_key.get_secret_value() or not texts:
         return [None] * len(texts)
     async with httpx.AsyncClient(timeout=30) as client:
+        if record:
+            await record(embedding_calls=1)
         response = await client.post(
             settings.dashscope_base_url.rstrip("/") + "/embeddings",
             headers={"Authorization": "Bearer " + settings.dashscope_api_key.get_secret_value()},
             json={"model": settings.embedding_model, "input": texts},
         )
         response.raise_for_status()
-        vectors = sorted(response.json()["data"], key=lambda row: row["index"])
+        payload = response.json()
+        if record:
+            await record(embedding_tokens=payload.get("usage", {}).get("total_tokens", 0))
+        vectors = sorted(payload["data"], key=lambda row: row["index"])
         if len(vectors) != len(texts):
             raise ValueError("Embedding 数量不一致")
         return [row["embedding"] for row in vectors]
 
 
 async def collect(factory, settings, provider, *, force=False):
-    # worker 与 API 共用锁；成功后两分钟内的刷新复用同一批来源。
+    # 公共预算：API只能读缓存；所有后台实例共享DB锁，失败/空结果也消费预约。
     async with factory() as lock_db:
         if not await lock_db.scalar(text("SELECT pg_try_advisory_xact_lock(9412272)")):
             return 0
         latest = await lock_db.scalar(
-            select(HotTopic.fetched_at).order_by(HotTopic.fetched_at.desc()).limit(1)
+            select(HotCollectionRun.created_at)
+            .order_by(HotCollectionRun.created_at.desc())
+            .limit(1)
         )
-        age = timedelta(minutes=2) if force else timedelta(hours=2)
-        if latest and latest > utcnow() - age:
+        if latest and latest > utcnow() - timedelta(seconds=settings.hot_min_interval_seconds):
             return 0
-        return await _collect(factory, settings, provider)
+        count = await lock_db.scalar(
+            select(func.count())
+            .select_from(HotCollectionRun)
+            .where(HotCollectionRun.created_at >= utcnow() - timedelta(days=1))
+        )
+        if count >= settings.hot_daily_limit:
+            return 0
+        async with factory() as db:
+            await db.execute(
+                update(HotCollectionRun)
+                .where(HotCollectionRun.status == "running")
+                .values(status="failed", error="interrupted", finished_at=utcnow())
+            )
+            run = HotCollectionRun(
+                model=settings.interview_model, embedding_model=settings.embedding_model
+            )
+            db.add(run)
+            await db.commit()
+            run_id = run.id
+
+        async def record(**values):
+            async with factory() as db:
+                await db.execute(
+                    update(HotCollectionRun).where(HotCollectionRun.id == run_id).values(**values)
+                )
+                await db.commit()
+
+        try:
+            async with asyncio.timeout(settings.hot_run_seconds):
+                added = await _collect(factory, settings, provider, record)
+            await record(status="succeeded", finished_at=utcnow())
+            return added
+        except BaseException as error:
+            await record(status="failed", error=type(error).__name__, finished_at=utcnow())
+            raise
 
 
-async def _collect(factory, settings, provider):
+async def _collect(factory, settings, provider, record):
     candidates, succeeded = [], False
     if settings.content_news_enabled:
         groups = [
@@ -135,7 +175,8 @@ async def _collect(factory, settings, provider):
     if not candidates:
         return 0
     # 无分类服务则不发布热点；固定日历始终可用。
-    message, _ = await provider.complete(
+    await record(llm_calls=1)
+    message, usage = await provider.complete(
         [
             {
                 "role": "system",
@@ -156,6 +197,11 @@ async def _collect(factory, settings, provider):
             },
         ],
         model=settings.interview_model,
+        max_tokens=1000,
+        attempts=1,
+    )
+    await record(
+        input_tokens=usage.get("prompt_tokens", 0), output_tokens=usage.get("completion_tokens", 0)
     )
     raw = (message.get("content") or "").strip()
     if raw.startswith("```"):
@@ -163,7 +209,7 @@ async def _collect(factory, settings, provider):
     approved = json.loads(raw).get("approved", [])
     selected = [c for i, c in enumerate(candidates) if i in approved]
     try:
-        vectors = await embed(settings, [c["title"] for c in selected])
+        vectors = await embed(settings, [c["title"] for c in selected], record)
     except (httpx.HTTPError, ValueError, KeyError):
         logger.warning("Embedding unavailable; falling back to title deduplication")
         vectors = [None] * len(selected)

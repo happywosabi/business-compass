@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from copy import deepcopy
 from datetime import date
 from typing import Any, Literal
 
@@ -123,6 +122,8 @@ class OrchardSection(Strict):
 
 
 ORCHARD_KEYS = tuple(f"orchard.{k}" for k in OrchardSection.model_fields)
+MAX_ORCHARD_CHANNELS = 200
+MAX_SENSITIVITY_RANGES = 100
 REQUIRED = (
     "orchard.period",
     "orchard.audience",
@@ -205,6 +206,15 @@ class OrchardParams(Strict):
                 check(getattr(self.orchard.shared_costs.base, k), False)
         check(self.orchard.unpaid_labor, False)
         check(self.orchard.equipment, False)
+        channels = (
+            sum(len(g.channels) for v in varieties.base for g in v.grades) if varieties else 0
+        )
+        if channels > MAX_ORCHARD_CHANNELS:
+            raise ValueError(
+                f"单份果园档案最多{MAX_ORCHARD_CHANNELS}个销售渠道条目，请拆分经营方案"
+            )
+        if sum(1 for _ in _ranges(self)) > MAX_SENSITIVITY_RANGES:
+            raise ValueError(f"三档范围最多{MAX_SENSITIVITY_RANGES}个，请保留关键假设的范围")
         return self
 
     def get(self, key: str) -> ParamValue[Any] | None:
@@ -279,29 +289,30 @@ class OrchardResult(Strict):
     )
 
 
-def _scenario(params: OrchardParams, scenario: Scenario) -> OrchardScenario:
+def _scenario(
+    params: OrchardParams, scenario: Scenario, override: tuple[int, float] | None = None
+) -> OrchardScenario:
+    def n(value):
+        return override[1] if override and id(value) == override[0] else value.get(scenario)
+
     o = params.orchard
     rows = []
     total_revenue = total_direct = total_sold = total_channel_variable = 0.0
     for v in o.varieties.base:
-        harvest = v.harvest_kg.get(scenario)
-        saleable = harvest * (1 - v.loss_rate.get(scenario))
+        harvest = n(v.harvest_kg)
+        saleable = harvest * (1 - n(v.loss_rate))
         revenue = sold = channel_cost = channel_variable = 0.0
         for g in v.grades:
-            weight = saleable * g.share * g.sell_through.get(scenario)
+            weight = saleable * g.share * n(g.sell_through)
             for c in g.channels:
                 kg = weight * c.share
-                sales = kg * c.price.get(scenario)
-                variable = kg * (
-                    c.packaging_per_kg.get(scenario) + c.logistics_per_kg.get(scenario)
-                )
+                sales = kg * n(c.price)
+                variable = kg * (n(c.packaging_per_kg) + n(c.logistics_per_kg))
                 sold += kg
                 revenue += sales
                 channel_variable += variable
-                channel_cost += variable + sales * c.fee_rate.get(scenario)
-        direct = channel_cost + sum(
-            getattr(v.costs, k).get(scenario) for k in DirectCosts.model_fields
-        )
+                channel_cost += variable + sales * n(c.fee_rate)
+        direct = channel_cost + sum(n(getattr(v.costs, k)) for k in DirectCosts.model_fields)
         rows.append(
             VarietyResult(
                 id=v.id,
@@ -319,16 +330,16 @@ def _scenario(params: OrchardParams, scenario: Scenario) -> OrchardScenario:
         total_direct += direct
         total_sold += sold
         total_channel_variable += channel_variable
-    shared = sum(getattr(o.shared_costs.base, k).get(scenario) for k in SharedCosts.model_fields)
+    shared = sum(n(getattr(o.shared_costs.base, k)) for k in SharedCosts.model_fields)
     expense = total_direct + shared
     # 求等效统一均价：销售比例/费用率固定，收入扣费后覆盖非佣金成本。
     weighted_net_kg = sum(
-        v.harvest_kg.get(scenario)
-        * (1 - v.loss_rate.get(scenario))
+        n(v.harvest_kg)
+        * (1 - n(v.loss_rate))
         * g.share
-        * g.sell_through.get(scenario)
+        * n(g.sell_through)
         * c.share
-        * (1 - c.fee_rate.get(scenario))
+        * (1 - n(c.fee_rate))
         for v in o.varieties.base
         for g in v.grades
         for c in g.channels
@@ -336,20 +347,16 @@ def _scenario(params: OrchardParams, scenario: Scenario) -> OrchardScenario:
     non_commission = (
         shared
         + total_channel_variable
-        + sum(
-            getattr(v.costs, k).get(scenario)
-            for v in o.varieties.base
-            for k in DirectCosts.model_fields
-        )
+        + sum(n(getattr(v.costs, k)) for v in o.varieties.base for k in DirectCosts.model_fields)
     )
-    unpaid = o.unpaid_labor.get(scenario)
+    unpaid = n(o.unpaid_labor)
     return OrchardScenario(
         revenue=total_revenue,
         operating_expense=expense,
         operating_surplus=total_revenue - expense,
         labor_adjusted_earnings=total_revenue - expense - unpaid,
         unpaid_labor=unpaid,
-        equipment_purchases=o.equipment.get(scenario) if o.equipment else None,
+        equipment_purchases=n(o.equipment) if o.equipment else None,
         sold_kg=total_sold,
         break_even_price=non_commission / weighted_net_kg if weighted_net_kg > 0 else None,
         break_even_note="按当前等级、渠道及售出量，统一售价覆盖经营支出所需的均价；未含家庭劳动估值。"
@@ -360,41 +367,35 @@ def _scenario(params: OrchardParams, scenario: Scenario) -> OrchardScenario:
     )
 
 
+def _ranges(node, path=()):
+    """遍历已验证模型；只覆盖一个值，无复制、无重复全量校验、无原地修改。"""
+    if isinstance(node, ParamValue) and isinstance(node.base, (int, float)):
+        for tier in ("pessimistic", "optimistic"):
+            value = getattr(node, tier)
+            if value is not None and value != node.base:
+                yield path, node, tier, value
+    elif isinstance(node, BaseModel):
+        for key in type(node).model_fields:
+            yield from _ranges(getattr(node, key), (*path, key))
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            yield from _ranges(value, (*path, i))
+
+
 def evaluate_orchard(params: OrchardParams) -> OrchardResult:
     if missing := params.missing_keys():
         raise MissingParametersError(missing)
     scenarios = {s: _scenario(params, s) for s in SCENARIOS}
     sensitivity = []
-    data = params.model_dump(mode="json")
-
-    def visit(node: Any, path: list[str | int]) -> None:
-        if isinstance(node, dict):
-            if "base" in node and isinstance(node["base"], (int, float)):
-                for tier in ("pessimistic", "optimistic"):
-                    if node.get(tier) is not None and node[tier] != node["base"]:
-                        altered = deepcopy(data)
-                        target = altered
-                        for part in path:
-                            target = target[part]
-                        target["base"] = node[tier]
-                        target["pessimistic"] = target["optimistic"] = None
-                        result = _scenario(OrchardParams.model_validate(altered), "base")
-                        sensitivity.append(
-                            {
-                                "key": ".".join(map(str, path)),
-                                "scenario": tier,
-                                "delta": result.operating_surplus
-                                - scenarios["base"].operating_surplus,
-                            }
-                        )
-            else:
-                for k, v in node.items():
-                    visit(v, [*path, k])
-        elif isinstance(node, list):
-            for i, v in enumerate(node):
-                visit(v, [*path, i])
-
-    visit(data, [])
+    for path, value, tier, number in _ranges(params):
+        result = _scenario(params, "base", (id(value), number))
+        sensitivity.append(
+            {
+                "key": ".".join(map(str, path)),
+                "scenario": tier,
+                "delta": result.operating_surplus - scenarios["base"].operating_surplus,
+            }
+        )
     return OrchardResult(
         scenarios=scenarios,
         sensitivity=sorted(sensitivity, key=lambda x: abs(x["delta"]), reverse=True),

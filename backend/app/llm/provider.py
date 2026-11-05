@@ -25,6 +25,8 @@ class DeepSeekProvider:
         model: str,
         on_delta: Callable[[str], Awaitable[None]] | None = None,
         thinking: bool | None = None,
+        max_tokens: int | None = None,
+        attempts: int = 2,
     ):
         settings = self.settings
         if not settings.deepseek_api_key.get_secret_value():
@@ -40,10 +42,12 @@ class DeepSeekProvider:
         }
         if tools:
             body["tools"] = tools
+        if max_tokens is not None:
+            body["max_tokens"] = min(max_tokens, body["max_tokens"])
         # 短访谈和已有确定性数字的报告无需消耗隐藏思考预算。
         if thinking is not None or model == settings.interview_model:
             body["thinking"] = {"type": "enabled" if thinking else "disabled"}
-        for attempt in range(2):
+        for attempt in range(attempts):
             received = False
             finished = False
             content, reasoning, calls, usage = "", "", {}, {}
@@ -58,7 +62,10 @@ class DeepSeekProvider:
                         },
                         json=body,
                     ) as response:
-                        if response.status_code in {429, 500, 502, 503, 504} and attempt == 0:
+                        if (
+                            response.status_code in {429, 500, 502, 503, 504}
+                            and attempt + 1 < attempts
+                        ):
                             await asyncio.sleep(0.5)
                             continue
                         if response.status_code >= 400:
@@ -113,7 +120,7 @@ class DeepSeekProvider:
                     raise LLMUnavailable("AI 没有返回内容，请稍后重试")
                 return message, usage
             except (httpx.HTTPError, json.JSONDecodeError) as error:
-                if received or attempt:
+                if received or attempt + 1 >= attempts:
                     raise LLMUnavailable("AI 连接中断，已记录的数字会保留，请重试") from error
                 await asyncio.sleep(0.5)
         raise LLMUnavailable("AI 服务暂时不可用")

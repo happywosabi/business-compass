@@ -193,3 +193,63 @@ def test_zero_sell_through_and_channel_fees_break_even():
     result = evaluate_orchard(OrchardParams.model_validate(data)).scenarios["base"]
     assert result.operating_expense == 34320
     assert result.break_even_price == pytest.approx(30000 / (7200 * 0.9))
+
+
+def test_sensitivity_matches_full_recalculation_without_mutating_input():
+    from app.engine.orchard import _ranges
+
+    data = orchard_data()
+    v = data["orchard"]["varieties"]["base"][0]
+    v["harvest_kg"].update(pessimistic=8000, optimistic=12000)
+    v["loss_rate"].update(pessimistic=0.2, optimistic=0.05)
+    v["grades"][0]["channels"][0]["price"].update(pessimistic=5, optimistic=8)
+    v["costs"]["inputs"].update(pessimistic=25000, optimistic=18000)
+    params = OrchardParams.model_validate(data)
+    before = params.model_dump(mode="json")
+    result = evaluate_orchard(params)
+    for path, _, tier, number in _ranges(params):
+        changed = deepcopy(before)
+        target = changed
+        for part in path:
+            target = target[part]
+        target.update(base=number, pessimistic=None, optimistic=None)
+        expected = (
+            evaluate_orchard(OrchardParams.model_validate(changed))
+            .scenarios["base"]
+            .operating_surplus
+            - result.scenarios["base"].operating_surplus
+        )
+        actual = next(
+            r["delta"]
+            for r in result.sensitivity
+            if r["key"] == ".".join(map(str, path)) and r["scenario"] == tier
+        )
+        assert actual == pytest.approx(expected)
+    assert params.model_dump(mode="json") == before
+
+
+def test_orchard_rejects_excessive_channels_and_sensitivity_ranges():
+    data = orchard_data()
+    seed = data["orchard"]["varieties"]["base"][0]
+    varieties = []
+    for i in range(25):
+        v = deepcopy(seed)
+        v["id"] = f"v{i}"
+        v["grades"] = [dict(deepcopy(seed["grades"][0]), id=f"g{j}", share=0.1) for j in range(10)]
+        varieties.append(v)
+    data["orchard"]["varieties"]["base"] = varieties
+    with pytest.raises(ValidationError, match="200个销售渠道"):
+        OrchardParams.model_validate(data)
+    for v in varieties:
+        v["grades"] = [deepcopy(seed["grades"][0])]
+        for value in [
+            v["harvest_kg"],
+            v["grades"][0]["channels"][0]["price"],
+            *v["costs"].values(),
+        ]:
+            value["optimistic"] = value["base"]  # equal ranges cost no extra calculation
+        v["harvest_kg"].update(pessimistic=8000, optimistic=12000)
+        v["grades"][0]["channels"][0]["price"].update(pessimistic=5, optimistic=7)
+        v["costs"]["inputs"].update(pessimistic=25000, optimistic=18000)
+    with pytest.raises(ValidationError, match="范围最多100个"):
+        OrchardParams.model_validate(data)

@@ -34,7 +34,9 @@ class FakeLLM:
         self.replies = list(replies)
         self.calls = []
 
-    async def complete(self, messages, tools=None, *, model, on_delta=None, thinking=None):
+    async def complete(
+        self, messages, tools=None, *, model, on_delta=None, thinking=None, **kwargs
+    ):
         self.calls.append(messages.copy())
         reply = self.replies.pop(0)
         if isinstance(reply, Exception):

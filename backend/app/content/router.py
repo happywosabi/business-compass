@@ -1,5 +1,3 @@
-import logging
-import time
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -18,10 +16,9 @@ from app.profiles import service as profiles
 from app.profiles.schemas import StrictBody
 
 from . import service
-from .hot import collect, recommendations
+from .hot import recommendations
 
 router = APIRouter(prefix="/api/profiles/{profile_id}/content", tags=["内容创作"])
-logger = logging.getLogger(__name__)
 
 
 class Generate(StrictBody):
@@ -65,21 +62,10 @@ async def refresh_hot_topics(
     profile_id: UUID, request: Request, db: DB, user: VerifiedUser, settings: AppSettings
 ):
     profile = await profiles.get_owned_profile(db, user.id, profile_id)
-    state = request.app.state
-    error = None
-    async with state.hot_refresh_lock:
-        if time.monotonic() - state.hot_refreshed_at >= 120:
-            try:
-                await collect(state.session_factory, settings, state.llm, force=True)
-                state.hot_refresh_error = None
-            except Exception as exc:
-                logger.warning("Hot refresh unavailable: %s", type(exc).__name__)
-                state.hot_refresh_error = "热点更新暂不可用；仍可选择有效的已有来源，或直接写日常。"
-            state.hot_refreshed_at = time.monotonic()
-        error = getattr(state, "hot_refresh_error", None)
     return {
         "topics": await recommendations(db, profile.template_key, profile.industry),
-        "error": error,
+        "error": None,
+        "message": "已刷新已有来源。公共热点由后台定时采集，此操作不调用 AI、不消耗个人额度。",
     }
 
 

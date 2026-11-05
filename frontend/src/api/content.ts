@@ -30,7 +30,7 @@ export const contentApi = {
   topics: (id: string) => api.get<Topic[]>(`/api/profiles/${id}/content/topics`),
   hotTopics: (id: string) => api.get<Topic[]>(`/api/profiles/${id}/content/hot-topics`),
   refreshHotTopics: (id: string) =>
-    api.post<{ topics: Topic[]; error: string | null }>(`/api/profiles/${id}/content/hot-topics/refresh`, {}),
+    api.post<{ topics: Topic[]; error: string | null; message?: string }>(`/api/profiles/${id}/content/hot-topics/refresh`, {}),
   drafts: (id: string) => api.get<Draft[]>(`/api/profiles/${id}/content/drafts`),
   create: (
     id: string,

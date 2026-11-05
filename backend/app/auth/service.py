@@ -75,10 +75,35 @@ async def _find_user(db: AsyncSession, email: str) -> User | None:
     return await db.scalar(select(User).where(User.email == email, User.deleted_at.is_(None)))
 
 
+async def _lock_user(db: AsyncSession, user_id) -> User | None:
+    # 所有认证写入都先锁用户、再锁令牌/会话；刷新 identity map，避免使用等待锁前的旧值。
+    return await db.scalar(
+        select(User)
+        .where(User.id == user_id, User.deleted_at.is_(None))
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
+async def _revoke_resets(db: AsyncSession, user: User, now) -> None:
+    await db.execute(
+        update(EmailToken)
+        .where(
+            EmailToken.user_id == user.id,
+            EmailToken.purpose == RESET_PASSWORD,
+            EmailToken.used_at.is_(None),
+        )
+        .values(used_at=now)
+    )
+
+
 async def _issue_email_token(
     db: AsyncSession, settings: Settings, user: User, purpose: str
 ) -> str | None:
     """生成一个邮件令牌；发送太频繁时返回 None。调用方负责提交事务。"""
+    user = await _lock_user(db, user.id)
+    if user is None or user.status != "active":
+        return None
     now = utcnow()
     same_purpose = (EmailToken.user_id == user.id, EmailToken.purpose == purpose)
 
@@ -108,6 +133,7 @@ async def _issue_email_token(
             user_id=user.id,
             purpose=purpose,
             token_hash=hash_token(token),
+            password_version=user.password_version,
             expires_at=now + ttl,
             created_at=now,
         )
@@ -118,22 +144,31 @@ async def _issue_email_token(
 async def _take_email_token(
     db: AsyncSession, token: str, purpose: str
 ) -> tuple[EmailToken, User] | None:
-    """找到一个有效（未使用、未过期）的邮件令牌，并锁住这一行，防止同时被使用两次。"""
-    row = (
-        await db.execute(
-            select(EmailToken, User)
-            .join(User, User.id == EmailToken.user_id)
-            .where(
-                EmailToken.token_hash == hash_token(token),
-                EmailToken.purpose == purpose,
-                EmailToken.used_at.is_(None),
-                EmailToken.expires_at > utcnow(),
-                User.deleted_at.is_(None),
-            )
-            .with_for_update(of=EmailToken)
+    """统一先锁用户，再重新读取令牌；与签发及改密保持相同锁顺序。"""
+    user_id = await db.scalar(
+        select(EmailToken.user_id).where(
+            EmailToken.token_hash == hash_token(token), EmailToken.purpose == purpose
         )
-    ).first()
-    return (row[0], row[1]) if row else None
+    )
+    user = await _lock_user(db, user_id) if user_id else None
+    if user is None or user.status != "active":
+        return None
+    email_token = await db.scalar(
+        select(EmailToken)
+        .where(
+            EmailToken.token_hash == hash_token(token),
+            EmailToken.purpose == purpose,
+            EmailToken.used_at.is_(None),
+            EmailToken.expires_at > utcnow(),
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if email_token is None or (
+        purpose == RESET_PASSWORD and email_token.password_version != user.password_version
+    ):
+        return None
+    return email_token, user
 
 
 def _verification_mail(settings: Settings, user: User, token: str) -> MailMessage:
@@ -212,16 +247,31 @@ async def login(
     email = normalize_email(email)
     wrong = AuthError(401, "邮箱或密码错误")
     locked = AuthError(429, f"登录失败次数过多，请 {settings.login_lock_minutes} 分钟后再试")
-    now = utcnow()
-
     user = await _find_user(db, email)
     if user is None:
         await passwords.burn_verify_time(password)
         raise wrong
-    if user.locked_until and user.locked_until > now:
+    if user.locked_until and user.locked_until > utcnow():
         raise locked
 
-    if not await passwords.verify_password(user.password_hash, password):
+    checked_hash, checked_version = user.password_hash, user.password_version
+    valid = await passwords.verify_password(checked_hash, password)
+    replacement_hash = (
+        await passwords.hash_password(password)
+        if valid and passwords.needs_rehash(checked_hash)
+        else None
+    )
+    user = await _lock_user(db, user.id)
+    now = utcnow()
+    if (
+        user is None
+        or user.password_version != checked_version
+        or user.password_hash != checked_hash
+    ):
+        raise wrong
+    if user.locked_until and user.locked_until > now:
+        raise locked
+    if not valid:
         user.failed_login_count += 1
         if user.failed_login_count >= settings.login_max_failures:
             user.failed_login_count = 0
@@ -235,8 +285,8 @@ async def login(
     if user.status != "active":
         raise AuthError(403, "账号已停用，请联系客服")
 
-    if passwords.needs_rehash(user.password_hash):
-        user.password_hash = await passwords.hash_password(password)
+    if replacement_hash:
+        user.password_hash = replacement_hash
     user.failed_login_count = 0
     user.locked_until = None
     user.last_login_at = now
@@ -246,6 +296,7 @@ async def login(
         UserSession(
             user_id=user.id,
             token_hash=hash_token(token),
+            password_version=user.password_version,
             expires_at=now + timedelta(days=settings.session_days),
             created_at=now,
             last_seen_at=now,
@@ -271,6 +322,7 @@ async def authenticate(db: AsyncSession, token: str | None) -> CurrentSession | 
                 UserSession.expires_at > now,
                 User.deleted_at.is_(None),
                 User.status == "active",
+                UserSession.password_version == User.password_version,
             )
         )
     ).first()
@@ -316,12 +368,13 @@ async def reset_password(db: AsyncSession, token: str, new_password: str) -> Non
 
     now = utcnow()
     user.password_hash = await passwords.hash_password(new_password)
+    user.password_version += 1
     user.password_changed_at = now
     user.failed_login_count = 0
     user.locked_until = None
     if user.email_verified_at is None:
         user.email_verified_at = now  # 能收到重置邮件，说明邮箱确实属于本人
-    email_token.used_at = now
+    await _revoke_resets(db, user, now)
     # 所有设备退出登录
     await db.execute(delete(UserSession).where(UserSession.user_id == user.id))
     await db.commit()
@@ -331,14 +384,36 @@ async def change_password(
     db: AsyncSession, current: CurrentSession, old_password: str, new_password: str
 ) -> None:
     user = current.user
-    if not await passwords.verify_password(user.password_hash, old_password):
+    checked_hash, checked_version = user.password_hash, user.password_version
+    if not await passwords.verify_password(checked_hash, old_password):
         raise AuthError(400, "原密码错误")
     if new_password == old_password:
         raise AuthError(400, "新密码不能和原密码相同")
     _check_new_password(new_password, user.email)
 
-    user.password_hash = await passwords.hash_password(new_password)
+    replacement_hash = await passwords.hash_password(new_password)
+    user = await _lock_user(db, user.id)
+    session = await db.scalar(
+        select(UserSession)
+        .where(UserSession.id == current.session.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if (
+        user is None
+        or user.status != "active"
+        or user.password_version != checked_version
+        or user.password_hash != checked_hash
+        or session is None
+        or session.password_version != user.password_version
+        or session.expires_at <= utcnow()
+    ):
+        raise AuthError(401, "密码或登录状态已改变，请重新登录")
+    user.password_hash = replacement_hash
+    user.password_version += 1
     user.password_changed_at = utcnow()
+    session.password_version = user.password_version
+    await _revoke_resets(db, user, user.password_changed_at)
     # 其他设备退出登录，当前设备保持登录
     await db.execute(
         delete(UserSession).where(

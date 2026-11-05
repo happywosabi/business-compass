@@ -9,8 +9,9 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -65,6 +66,9 @@ class Settings(BaseSettings):
     ai_run_seconds: int = 240
     ai_max_output_tokens: int = 3000
     ai_report_max_tokens: int = 8000
+    calculation_seconds: float = Field(default=5, gt=0, le=30)
+    calculation_per_minute: int = Field(default=30, ge=1, le=120)
+    calculation_per_day: int = Field(default=300, ge=1)
     dashscope_api_key: SecretStr = SecretStr("")
     dashscope_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     embedding_model: str = "qwen3.7-text-embedding-flash"
@@ -74,6 +78,31 @@ class Settings(BaseSettings):
     hotapi_base_url: str = ""
     hotapi_channels: str = "weibo,zhihu"
     worker_interval_seconds: int = 7200
+    hot_daily_limit: int = Field(default=24, ge=0, le=100)
+    hot_min_interval_seconds: int = Field(default=3600, ge=120)
+    hot_run_seconds: float = Field(default=90, gt=0, le=240)
+
+    @model_validator(mode="after")
+    def production_security(self) -> Settings:
+        if self.is_production:
+            url = urlsplit(self.app_base_url)
+            if (
+                url.scheme != "https"
+                or not url.hostname
+                or url.username is not None
+                or url.password is not None
+                or url.query
+                or url.fragment
+            ):
+                raise ValueError("生产环境 APP_BASE_URL 必须是无凭据的 HTTPS 地址")
+            if not self.session_cookie_secure:
+                raise ValueError("生产环境必须设置 SESSION_COOKIE_SECURE=true")
+            if not self.database_url and self.postgres_password.get_secret_value() in {
+                "",
+                "change-me",
+            }:
+                raise ValueError("生产环境必须配置数据库密码，不能使用模板密码")
+        return self
 
     @property
     def is_production(self) -> bool:

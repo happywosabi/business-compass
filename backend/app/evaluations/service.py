@@ -15,7 +15,9 @@ from app.engine.fruit_retail import FruitRetailParams, FruitRetailResult
 from app.engine.orchard import OrchardResult
 from app.profiles import service as profiles
 from app.templates import load_template
-from app.templates.registry import calculate, parse_parameters, preview
+from app.templates.registry import parse_parameters
+
+from .compute import compute
 
 
 def summary(result) -> str:
@@ -116,7 +118,7 @@ async def create_evaluation(
         },
     )
     profiles.record_changes(db, profile, params, filled, source="default", reason="测算前补齐缺项")
-    result = calculate(filled, template.check_rules(profile.industry))
+    result = await compute(db, profile.user_id, filled, template.check_rules(profile.industry))
     item = Evaluation(
         profile_id=profile.id,
         profile_revision=profile.revision,
@@ -147,7 +149,7 @@ async def try_changes(
     try:
         baseline = parse_parameters(profile.template_key, params)
         profiles.validate_ranges(baseline.with_values(changes))
-        return preview(baseline, changes)
+        return await compute(db, profile.user_id, baseline, changes=changes)
     except (KeyError, ValidationError, ValueError) as error:
         raise HTTPException(
             422, f"无法试算，请检查参数是否齐全和有效：{str(error)[:800]}"

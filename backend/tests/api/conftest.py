@@ -85,7 +85,9 @@ async def app(test_settings):
         settings=test_settings.model_copy(deep=True), mail_sender=MemoryMailSender()
     )
     async with application.state.engine.begin() as conn:
-        await conn.execute(text("TRUNCATE users, sessions, email_tokens, hot_topics CASCADE"))
+        await conn.execute(
+            text("TRUNCATE users, sessions, email_tokens, hot_topics, hot_collection_runs CASCADE")
+        )
     yield application
     await application.state.ai_hub.close()
     await application.state.engine.dispose()

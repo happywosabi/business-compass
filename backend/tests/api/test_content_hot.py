@@ -177,7 +177,7 @@ async def test_selected_hot_researched_persisted_and_idempotent(
     ).status_code == 422
 
 
-async def test_hot_endpoint_ownership_verification_refresh_failure_and_throttle(
+async def test_hot_endpoint_ownership_verification_and_no_paid_collection(
     client, other_client, app, db, monkeypatch
 ):
     await register(client)
@@ -197,11 +197,15 @@ async def test_hot_endpoint_ownership_verification_refresh_failure_and_throttle(
         calls.append(1)
         raise ValueError("offline")
 
-    monkeypatch.setattr("app.content.router.collect", fail)
+    monkeypatch.setattr(hot, "collect", fail)
+    await db.execute(update(User).values(daily_ai_quota=0))
+    await db.commit()
     for _ in range(2):
         result = (await client.post(path + "/hot-topics/refresh")).json()
-        assert result["error"] and result["topics"] == []
-    assert len(calls) == 1
+        assert result["error"] is None and result["topics"] == []
+        assert "不调用 AI" in result["message"]
+    assert calls == []
+    assert await db.scalar(select(AIRun)) is None
 
 
 async def test_collection_partial_failure_summary_provenance_and_template_matching(

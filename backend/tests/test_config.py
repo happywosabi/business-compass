@@ -1,3 +1,5 @@
+import pytest
+from pydantic import ValidationError
 from sqlalchemy.engine import make_url
 
 from app.config import Settings
@@ -35,3 +37,42 @@ def test_secrets_are_hidden_in_repr():
 def test_mask_email():
     assert mask_email("chestnut@example.com") == "c***@example.com"
     assert mask_email("broken") == "***"
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"app_base_url": "http://compass.example.com"},
+        {"app_base_url": "https://user:pass@compass.example.com"},
+        {"session_cookie_secure": False},
+        {"postgres_password": "change-me"},
+    ],
+)
+def test_production_rejects_insecure_configuration(override):
+    fields = dict(
+        app_env="production",
+        app_base_url="https://compass.example.com",
+        session_cookie_secure=True,
+        postgres_password="test-random-password",
+    )
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **(fields | override))
+
+
+def test_production_accepts_https_and_secure_cookie():
+    settings = Settings(
+        _env_file=None,
+        app_env="production",
+        app_base_url="https://compass.example.com",
+        session_cookie_secure=True,
+        postgres_password="test-random-password",
+    )
+    assert settings.is_production
+
+
+def test_app_rejects_unsafe_model_copy_before_creating_resources():
+    from app.main import create_app
+
+    settings = Settings(_env_file=None, app_env="test", session_cookie_secure=False)
+    with pytest.raises(ValueError, match="HTTPS"):
+        create_app(settings.model_copy(update={"app_env": "production"}))

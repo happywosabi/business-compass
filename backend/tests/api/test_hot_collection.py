@@ -2,11 +2,11 @@ from datetime import timedelta
 
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.content.hot import collect, recommendations
 from app.db.base import utcnow
-from app.db.models import HotTopic
+from app.db.models import HotCollectionRun, HotTopic
 
 from .test_interview import FakeLLM
 
@@ -50,6 +50,7 @@ async def test_collection_filters_deduplicates_updates_rank_and_falls_back_witho
     assert row and row.embedding is None
     # 超过7天的相同标题仍复用已有记录，避免唯一索引冲突。
     row.fetched_at = utcnow() - timedelta(days=9)
+    await db.execute(update(HotCollectionRun).values(created_at=utcnow() - timedelta(hours=3)))
     await db.commit()
     assert (
         await collect(

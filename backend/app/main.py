@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -35,17 +34,14 @@ def _warn_about_settings(settings: Settings) -> None:
     if password in {"", "change-me"} and not settings.database_url:
         logger.warning("数据库密码为空或仍是模板里的 change-me，请在 .env 中修改")
     if settings.is_production:
-        if not settings.session_cookie_secure:
-            logger.warning("生产环境应设置 SESSION_COOKIE_SECURE=true（需要先启用 HTTPS）")
         if settings.mail_backend != "smtp":
             logger.warning("生产环境的 MAIL_BACKEND 不是 smtp，用户将收不到邮件")
-        if not settings.app_base_url.startswith("https://"):
-            logger.warning("生产环境的 APP_BASE_URL 应以 https:// 开头")
 
 
 def create_app(settings: Settings | None = None, mail_sender: MailSender | None = None) -> FastAPI:
     """创建应用。测试时可以传入自己的配置和邮件发送器。"""
     settings = settings or get_settings()
+    settings.production_security()
     setup_logging()
     engine = create_engine(settings.sqlalchemy_url())
 
@@ -68,10 +64,8 @@ def create_app(settings: Settings | None = None, mail_sender: MailSender | None 
     app.state.ai_hub = Coordinator()
     app.state.llm = DeepSeekProvider(settings)
     app.state.settings = settings
-    app.state.hot_refresh_lock = asyncio.Lock()
-    app.state.hot_refreshed_at = 0.0
     app.state.engine = engine
-    app.state.session_factory = create_session_factory(engine)
+    app.state.session_factory = create_session_factory(engine, settings)
     app.state.mail_sender = mail_sender or create_mail_sender(settings)
 
     @app.exception_handler(AuthError)

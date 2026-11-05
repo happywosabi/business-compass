@@ -24,7 +24,7 @@ async function refresh() {
     const result = await contentApi.refreshHotTopics(profileId)
     if (at !== sequence) return
     topics.value = result.topics
-    message.value = result.error ?? ''
+    message.value = result.error ?? result.message ?? ''
     if (!topics.value.some((topic) => topic.id === selected.value)) selected.value = ''
   } catch (e) {
     if (at === sequence) message.value = errorMessage(e)
@@ -47,7 +47,6 @@ watch(() => props.profileId, async (profileId) => {
   } finally {
     if (at === sequence) {
       loading.value = false
-      if (props.verified) void refresh()
     }
   }
 }, { immediate: true })
@@ -62,7 +61,7 @@ watch(() => props.profileId, async (profileId) => {
       </div>
       <button class="hot-refresh text-link" :disabled="loading || disabled || !verified" @click="refresh">
         <span :class="{ spinning: loading }" aria-hidden="true">↻</span>
-        {{ loading ? '正在更新' : '更新热点' }}
+        {{ loading ? '正在刷新' : '刷新列表' }}
       </button>
     </header>
     <label class="input-label">
@@ -88,9 +87,9 @@ watch(() => props.profileId, async (profileId) => {
     </Transition>
     <p v-if="message" class="hot-message" role="status">{{ message }}</p>
     <p v-else-if="!loading && !topics.length" class="hot-message" role="status">
-      {{ verified ? '暂时没有适合当前档案的近期热点，可以稍后更新，也可以直接写日常。' : '验证邮箱后可更新热点；现有来源仍可查看。' }}
+      {{ verified ? '暂时没有适合当前档案的近期热点，可以稍后查看，也可以直接写日常。' : '现有来源仍可查看，验证邮箱后可刷新列表。' }}
     </p>
-    <small class="hot-footnote">近期资讯 ≠ 热搜排名 · 展示近 7 天报道，采集记录保留 24 小时</small>
+    <small class="hot-footnote">后台定时采集 · 刷新列表不消耗 AI 额度 · 展示近 7 天资讯，非热搜排名</small>
   </section>
 </template>
 

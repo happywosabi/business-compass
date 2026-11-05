@@ -1,0 +1,45 @@
+# 生产：docker compose -f compose.yaml -f compose.production.yaml up -d --build
+# APP_DOMAIN须为已解析到服务器的域名。不要同时加载compose.dev.yaml。
+services:
+  nginx:
+    volumes:
+      - ./deploy/nginx/trusted-caddy.conf:/etc/nginx/proxy-trust/caddy.conf:ro
+    networks:
+      default:
+      edge:
+        ipv4_address: 172.30.41.3
+  api:
+    environment:
+      APP_ENV: production
+      APP_BASE_URL: https://${APP_DOMAIN:?请设置生产域名APP_DOMAIN}
+      SESSION_COOKIE_SECURE: "true"
+  worker:
+    environment:
+      APP_ENV: production
+      APP_BASE_URL: https://${APP_DOMAIN:?请设置生产域名APP_DOMAIN}
+      SESSION_COOKIE_SECURE: "true"
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?请设置生产域名APP_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - nginx
+    networks:
+      edge:
+        ipv4_address: 172.30.41.2
+volumes:
+  caddy_data:
+  caddy_config:
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.41.0/24

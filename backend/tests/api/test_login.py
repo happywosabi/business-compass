@@ -160,3 +160,16 @@ async def test_password_is_never_returned(client, user):
     response = await login(client)
     assert PASSWORD not in response.text
     assert "password" not in response.json()
+
+
+async def test_https_login_uses_secure_cookie(app, client, user):
+    from httpx import ASGITransport, AsyncClient
+
+    app.state.settings.session_cookie_secure = True
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="https://testserver"
+    ) as https:
+        response = await login(https)
+        assert response.status_code == 200
+        assert "Secure" in response.headers["set-cookie"]
+        assert (await https.get("/api/auth/me")).status_code == 200

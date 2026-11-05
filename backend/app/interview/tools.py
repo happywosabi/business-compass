@@ -400,7 +400,7 @@ async def execute(
             raise ValueError("快捷选项最多10字")
         extra["quick_replies"] = body.options
     params = parse_parameters(profile.template_key, profile.parameters)
-    if not params.missing_keys():
+    if not params.missing_keys() and profile.template_key != "orchard":
         extra["checks"] = [
             c.model_dump() for c in calculate(params, template.check_rules(profile.industry)).checks
         ]
