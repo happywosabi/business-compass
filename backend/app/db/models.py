@@ -258,7 +258,7 @@ class ContentDraft(Base):
 
 
 class HotTopic(Base):
-    """受限热点来源；只保留来源实际提供的标题，不补写新闻细节。"""
+    """受限热点来源；保存实际取得的摘要、发布时间及来源。"""
 
     __tablename__ = "hot_topics"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -270,5 +270,6 @@ class HotTopic(Base):
     previous_rank: Mapped[int | None] = mapped_column(Integer)
     safe: Mapped[bool] = mapped_column(default=False)
     embedding: Mapped[list[float] | None] = mapped_column(JSONB, nullable=True)
+    sources: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     fetched_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
     __table_args__ = (Index(None, "safe", "fetched_at"),)

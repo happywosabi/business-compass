@@ -9,11 +9,13 @@ import { useAuthStore } from '@/stores/auth'
 import PageHead from '@/components/PageHead.vue'
 import CompassMark from '@/components/CompassMark.vue'
 import MarkdownText from '@/components/MarkdownText.vue'
+import HotTopicPicker from '@/components/HotTopicPicker.vue'
 import { fillField, pendingFields, removeFieldLine } from '@/utils/contentDraft'
 const auth = useAuthStore(),
   route = useRoute(),
   router = useRouter()
-const writingPanel = ref<HTMLElement>()
+const hotPanel = ref<HTMLElement>()
+const hotTopicId = ref('')
 const profiles = ref<Profile[]>([]),
   id = ref(String(route.query.profile ?? '')),
   topics = ref<Topic[]>([]),
@@ -57,6 +59,7 @@ async function load() {
   clearTimeout(timer)
   error.value = ''
   selected.value = undefined
+  hotTopicId.value = ''
   active.value = undefined
   facts.value = ''
   const params = profiles.value.find((p) => p.id === id.value)?.parameters
@@ -86,7 +89,7 @@ async function load() {
 function selectTopic(topic: Topic) {
   selected.value = topic
   if (window.innerWidth < 768) {
-    writingPanel.value?.scrollIntoView({
+    hotPanel.value?.scrollIntoView({
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
         ? 'instant'
         : 'smooth',
@@ -102,6 +105,7 @@ async function generate() {
     const result = await contentApi.create(id.value, {
       request_id: crypto.randomUUID(),
       topic_id: selected.value.id,
+      hot_topic_id: hotTopicId.value || undefined,
       platform: platform.value,
       voice: voice.value,
       audience: orchard.value ? audience.value : undefined,
@@ -222,6 +226,9 @@ onBeforeUnmount(() => {
             }}</span>
           </button>
         </div>
+        <div ref="hotPanel" class="hot-panel">
+          <HotTopicPicker v-model="hotTopicId" :profile-id="id" :verified="auth.isVerified" :disabled="busy" />
+        </div>
         <section v-if="active" class="bc-card draft-result">
           <header class="bc-card-title">
             <div>
@@ -284,7 +291,11 @@ onBeforeUnmount(() => {
                 >{{ source.title }} ↗</a
               ><b v-else>{{ source.title }}</b>
               <p>{{ source.excerpt }}</p>
-              <small>记录日期 {{ source.retrieved_at }}</small>
+              <small>
+                {{ source.publisher ? source.publisher + ' · ' : '' }}
+                {{ source.published_at ? '发布时间 ' + new Date(source.published_at).toLocaleString('zh-CN') + ' · ' : '' }}
+                获取于 {{ new Date(source.retrieved_at).toLocaleString('zh-CN') }}
+              </small>
             </article>
           </div>
         </section>
@@ -316,7 +327,7 @@ onBeforeUnmount(() => {
           </button>
         </section>
       </div>
-      <aside ref="writingPanel" class="writing-panel bc-card">
+      <aside class="writing-panel bc-card">
         <label v-if="orchard" class="input-label"
           >这篇写给谁<select v-model="audience" class="bc-input">
             <option value="buyers">采购商 · 供货与合作</option>
@@ -326,6 +337,7 @@ onBeforeUnmount(() => {
         <span class="eyebrow">02 / 写给谁，怎么说</span>
         <h2>{{ selected ? selected.title : '先挑一个你想说的话题' }}</h2>
         <p class="sub">{{ selected?.angle ?? '左边的卡片是起点，你的真实经历才是主角。' }}</p>
+        <p v-if="hotTopicId" class="hot-selected-note">已关联热点，生成时将联网检索背景资料。</p>
         <fieldset>
           <legend>发在哪里</legend>
           <div class="segmented">
@@ -415,6 +427,8 @@ onBeforeUnmount(() => {
 .topic-main > header h2 {
   margin-top: 7px;
 }
+.hot-panel { min-width: 0; scroll-margin-top: 20px; }
+.hot-selected-note { color: var(--accent-ink); font-size: 12px; }
 .topic-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -622,21 +636,22 @@ onBeforeUnmount(() => {
     width: 100%;
   }
   .writing-panel {
-    order: 3;
+    order: 4;
     scroll-margin-top: 20px;
   }
   .draft-result {
-    order: 4;
+    order: 5;
     width: 100%;
   }
   .draft-archive {
-    order: 5;
+    order: 6;
     width: 100%;
   }
   .topic-main,
   .writing-panel {
     width: 100%;
   }
+  .hot-panel { order: 3; width: 100%; }
   .writing-panel {
     position: static;
   }

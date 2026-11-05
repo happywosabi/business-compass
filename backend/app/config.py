@@ -69,7 +69,8 @@ class Settings(BaseSettings):
     dashscope_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     embedding_model: str = "qwen3.7-text-embedding-flash"
 
-    # 可选热点聚合服务；未配置时仅使用固定日历和门店选题
+    # 默认使用在线行业资讯；可选叠加自部署热点聚合服务
+    content_news_enabled: bool = True
     hotapi_base_url: str = ""
     hotapi_channels: str = "weibo,zhihu"
     worker_interval_seconds: int = 7200

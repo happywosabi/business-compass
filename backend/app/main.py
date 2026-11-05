@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -67,6 +68,8 @@ def create_app(settings: Settings | None = None, mail_sender: MailSender | None 
     app.state.ai_hub = Coordinator()
     app.state.llm = DeepSeekProvider(settings)
     app.state.settings = settings
+    app.state.hot_refresh_lock = asyncio.Lock()
+    app.state.hot_refreshed_at = 0.0
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
     app.state.mail_sender = mail_sender or create_mail_sender(settings)

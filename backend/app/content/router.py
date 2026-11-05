@@ -1,3 +1,5 @@
+import logging
+import time
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -16,14 +18,16 @@ from app.profiles import service as profiles
 from app.profiles.schemas import StrictBody
 
 from . import service
-from .hot import recommendations
+from .hot import collect, recommendations
 
 router = APIRouter(prefix="/api/profiles/{profile_id}/content", tags=["内容创作"])
+logger = logging.getLogger(__name__)
 
 
 class Generate(StrictBody):
     request_id: UUID
     topic_id: str = Field(max_length=80)
+    hot_topic_id: str | None = Field(default=None, max_length=80)
     platform: Literal["moments", "xiaohongshu"]
     confirmed_facts: str = Field(default="", max_length=2000)
     audience: Literal["buyers", "consumers"] | None = None
@@ -47,9 +51,33 @@ def out(item):
 async def topics(profile_id: UUID, db: DB, user: CurrentUser):
     profile = await profiles.get_owned_profile(db, user.id, profile_id)
     today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
-    return service.topics(profile, today) + (
-        await recommendations(db) if profile.template_key != "orchard" else []
-    )
+    return service.topics(profile, today)
+
+
+@router.get("/hot-topics")
+async def hot_topics(profile_id: UUID, db: DB, user: CurrentUser):
+    profile = await profiles.get_owned_profile(db, user.id, profile_id)
+    return await recommendations(db, profile.template_key)
+
+
+@router.post("/hot-topics/refresh")
+async def refresh_hot_topics(
+    profile_id: UUID, request: Request, db: DB, user: VerifiedUser, settings: AppSettings
+):
+    profile = await profiles.get_owned_profile(db, user.id, profile_id)
+    state = request.app.state
+    error = None
+    async with state.hot_refresh_lock:
+        if time.monotonic() - state.hot_refreshed_at >= 120:
+            try:
+                await collect(state.session_factory, settings, state.llm, force=True)
+                state.hot_refresh_error = None
+            except Exception as exc:
+                logger.warning("Hot refresh unavailable: %s", type(exc).__name__)
+                state.hot_refresh_error = "热点更新暂不可用；仍可选择有效的已有来源，或直接写日常。"
+            state.hot_refreshed_at = time.monotonic()
+        error = getattr(state, "hot_refresh_error", None)
+    return {"topics": await recommendations(db, profile.template_key), "error": error}
 
 
 @router.get("/drafts")
@@ -82,17 +110,46 @@ async def generate(
     settings: AppSettings,
 ):
     profile = await profiles.get_owned_profile(db, user.id, profile_id)
+    # 重放按原请求判断，不因来源刷新、跨日或档案变化重复扣费。
+    previous = await db.scalar(
+        select(AIRun).where(AIRun.user_id == user.id, AIRun.request_id == body.request_id)
+    )
+    if previous:
+        payload = body.model_dump(mode="json", exclude={"request_id"})
+        if (
+            previous.profile_id != profile_id
+            or previous.kind != "content"
+            or previous.input.get("request", {key: previous.input.get(key) for key in payload})
+            != payload
+        ):
+            raise HTTPException(409, "同一个请求编号不能用于不同内容")
+        item = await db.scalar(select(ContentDraft).where(ContentDraft.run_id == previous.id))
+        if item is None:
+            raise HTTPException(409, "草稿请求已中断，请重新生成")
+        return out(item)
     choices = service.topics(profile, datetime.now(ZoneInfo("Asia/Shanghai")).date())
-    if profile.template_key != "orchard":
-        choices += await recommendations(db)
     topic = next((t for t in choices if t["id"] == body.topic_id), None)
     if topic is None:
         raise HTTPException(422, "这个选题已过期，请刷新后选择")
+    hot = None
+    if body.hot_topic_id:
+        hot = next(
+            (
+                t
+                for t in await recommendations(db, profile.template_key)
+                if t["id"] == body.hot_topic_id
+            ),
+            None,
+        )
+        if hot is None:
+            raise HTTPException(422, "这个热点已过期或不适合当前档案，请刷新后选择")
     # 由服务器选定来源，不接受模型或客户端伪造来源链接。
     data = {
         **body.model_dump(mode="json", exclude={"request_id"}),
+        "request": body.model_dump(mode="json", exclude={"request_id"}),
         "prompt_version": service.PROMPT_VERSION,
         "topic": topic,
+        "hot_topic": hot,
         "store": {
             "name": profile.name,
             "city": profile.city,
@@ -123,7 +180,7 @@ async def generate(
         profile_id=profile_id,
         run_id=run.id,
         platform=body.platform,
-        topic=topic["title"],
+        topic=topic["title"] + (f" · {hot['title']}" if hot else ""),
         angle=topic["angle"],
         sources=topic["sources"]
         + (

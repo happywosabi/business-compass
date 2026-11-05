@@ -16,6 +16,7 @@ declare module 'vue' {
     AuthFrame: typeof import('./components/AuthFrame.vue')['default']
     CashChart: typeof import('./components/CashChart.vue')['default']
     CompassMark: typeof import('./components/CompassMark.vue')['default']
+    HotTopicPicker: typeof import('./components/HotTopicPicker.vue')['default']
     MarkdownText: typeof import('./components/MarkdownText.vue')['default']
     OrchardForm: typeof import('./components/OrchardForm.vue')['default']
     OrchardNumber: typeof import('./components/OrchardNumber.vue')['default']
