@@ -10,7 +10,8 @@
 - [x] 模板配置（`backend/app/templates/`）：饮品业态的问法、默认值、经验阈值（数值为占位，待核实）
 - [x] 项目骨架：Docker Compose、FastAPI、PostgreSQL、邮箱注册登录
 - [ ] AI 访谈
-- [ ] 手机网页（目前是临时测试页）
+- [x] 前端骨架（`frontend/`）：登录注册、验证邮箱、重置密码、我的、协议页；手机和桌面两套布局
+- [ ] 档案、测算结果、AI 访谈页面
 - [ ] 内容生成
 
 ## 用 Docker 启动
@@ -24,7 +25,7 @@ docker compose up -d --build
 
 | 地址 | 内容 |
 |---|---|
-| http://localhost:8080 | 临时测试页：注册、登录 |
+| http://localhost:8080 | 网站 |
 | http://localhost:8080/api/docs | 接口文档（生产环境自动关闭） |
 | http://localhost:8080/api/health | 健康检查 |
 
@@ -34,7 +35,24 @@ docker compose up -d --build
 docker compose ps                 # 查看状态
 docker compose logs -f api        # 查看后端日志
 docker compose down               # 停止（数据保留在 pgdata 数据卷里）
+docker compose up -d --build nginx  # 改了前端代码后，重新打包并发布网页
 ```
+
+## 前端开发
+
+需要 Node 22。本机用 nvm 安装，新开的终端默认仍是系统自带的 Node，进入 `frontend` 后用 `nvm use` 切换（只影响当前终端）。
+
+```bash
+cd frontend
+nvm use              # 按 .nvmrc 切换到 Node 22
+npm install          # 第一次运行：安装依赖
+npm run dev          # 开发服务器 http://localhost:5173，改代码页面立刻刷新；/api 请求转发到 Docker 里的后端
+npm test             # 单元测试
+npm run typecheck    # 类型检查
+npm run gen:api      # 后端接口改了以后，重新生成前端的接口类型（需要后端在运行）
+```
+
+开发服务器需要后端在运行（`docker compose up -d`）。
 
 ## 运行测试
 
@@ -72,6 +90,7 @@ backend/
   app/mail/           邮件发送
   app/db/             数据库表定义和迁移
   tests/              测试
-deploy/nginx/         Nginx 配置和临时测试页
+frontend/             前端网页（Vue 3 + Vant）
+deploy/nginx/         Nginx 配置
 compose.yaml          Docker Compose
 ```
