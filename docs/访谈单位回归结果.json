@@ -1,0 +1,119 @@
+{
+  "model": "deepseek-flash",
+  "prompt_version": "interview-2",
+  "cases": [
+    {
+      "case": "工资上下文与亲属劳动",
+      "input": "两个人，每天300",
+      "expected": {
+        "sales": null,
+        "staff": null
+      },
+      "actual": {
+        "sales": null,
+        "staff": null
+      },
+      "status": "succeeded",
+      "reply": "两位每人每天300元工资吗？两人里包含你自己吗？每月按几天支付？",
+      "passed": true,
+      "input_tokens": 5520,
+      "output_tokens": 19
+    },
+    {
+      "case": "工资上下文与亲属劳动",
+      "input": "算我自己还有我亲戚，不另外请人了，就我们两个人干",
+      "expected": {
+        "sales": null,
+        "staff": null
+      },
+      "actual": {
+        "sales": null,
+        "staff": null
+      },
+      "status": "succeeded",
+      "reply": "明白，你和亲戚两人。亲戚的报酬怎么算？另外每月按几天支付这300元？",
+      "passed": true,
+      "input_tokens": 5558,
+      "output_tokens": 21
+    },
+    {
+      "case": "工资上下文与亲属劳动",
+      "input": "明确一下，亲戚每人每天300元，每个月工作26天；我自己的工资按每月5000元。",
+      "expected": {
+        "sales": null,
+        "staff": 7800,
+        "owner": 5000
+      },
+      "actual": {
+        "sales": null,
+        "staff": 7800.0,
+        "owner": 5000.0
+      },
+      "status": "succeeded",
+      "reply": "已记下：亲戚300元/天×26天=7800元/月（含1人），你自己的工资5000元/月。\n\n还差：铺子月租多少？装修大概花多少？",
+      "passed": true,
+      "input_tokens": 13584,
+      "output_tokens": 307
+    },
+    {
+      "case": "年租月租改口",
+      "input": "房租每年54000元。",
+      "expected": {
+        "rent": 4500
+      },
+      "actual": {
+        "rent": 4500.0
+      },
+      "status": "succeeded",
+      "reply": "记下了：年租54000元，即每月4500元。\n\n接着问：装修大概花多少？设备大概多少钱？",
+      "passed": true,
+      "input_tokens": 12161,
+      "output_tokens": 136
+    },
+    {
+      "case": "年租月租改口",
+      "input": "刚才说错了，最终签约是每月6000元。",
+      "expected": {
+        "rent": 6000
+      },
+      "actual": {
+        "rent": 6000.0
+      },
+      "status": "succeeded",
+      "reply": "已改为月租6000元。\n\n接下来：装修大概花多少？设备大概多少钱？",
+      "passed": true,
+      "input_tokens": 14627,
+      "output_tokens": 144
+    },
+    {
+      "case": "月订单与月销售额",
+      "input": "每月卖7800杯，每个月营业26天。",
+      "expected": {
+        "sales": 300
+      },
+      "actual": {
+        "sales": 300.0
+      },
+      "status": "succeeded",
+      "reply": "已记：日均约300杯（7800杯÷26天）。\n\n接下来两个问题：\n1. 平均每单（杯）卖多少钱？\n2. 每月房租（含物业）多少？",
+      "passed": true,
+      "input_tokens": 12204,
+      "output_tokens": 173
+    },
+    {
+      "case": "月订单与月销售额",
+      "input": "刚才说错了，7800其实是每月销售额7800元，不是7800杯。每杯15元，每月营业26天，月单量我还不确定，请先别估计。",
+      "expected": {
+        "sales": null
+      },
+      "actual": {
+        "sales": null
+      },
+      "status": "succeeded",
+      "reply": "已更正：日均杯量先空着，客单价15元、月营业26天已记。月销售额7800元目前没有对应字段，先不存。\n\n日单量你还不确定——要不要我用“客流/产能”帮你估个上限参考？或者先告诉我每月房租多少？",
+      "passed": true,
+      "input_tokens": 14790,
+      "output_tokens": 219
+    }
+  ]
+}

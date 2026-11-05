@@ -11,6 +11,8 @@ from app.config import Settings
 from app.db.base import utcnow
 from app.db.models import AIRun, User
 
+MAX_CONCURRENT_RUNS = 3
+
 
 async def reserve(
     db, user, profile_id: UUID, request_id: UUID, kind: str, data: dict, settings: Settings
@@ -33,11 +35,18 @@ async def reserve(
         .where(AIRun.user_id == user.id, AIRun.status == "running", AIRun.lease_until < utcnow())
         .values(status="failed", error="服务中断，请重新发送", finished_at=utcnow())
     )
-    active = await db.scalar(
-        select(AIRun.id).where(AIRun.user_id == user.id, AIRun.status == "running").limit(1)
+    active = list(
+        await db.scalars(select(AIRun).where(AIRun.user_id == user.id, AIRun.status == "running"))
     )
-    if active:
-        raise HTTPException(409, "上一条 AI 请求仍在处理，请先等待或取消")
+    for item in active:
+        if kind == item.kind == "interview" and item.profile_id == profile_id:
+            raise HTTPException(409, "这份档案的上一条访谈仍在处理，请先等待或取消")
+        if kind == item.kind == "report" and item.input == data:
+            # 同一快照跨页面/标签页恢复已有任务，不重复扣配额或替换生成中的报告。
+            await db.commit()
+            return item, False
+    if len(active) >= MAX_CONCURRENT_RUNS:
+        raise HTTPException(409, "已有 3 个 AI 任务正在处理，请等待其中一个完成或取消后再试")
     start = datetime.combine(
         utcnow().astimezone(ZoneInfo("Asia/Shanghai")).date(), time.min, ZoneInfo("Asia/Shanghai")
     )

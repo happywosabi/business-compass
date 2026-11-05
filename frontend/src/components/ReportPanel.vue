@@ -6,20 +6,31 @@ import MarkdownText from './MarkdownText.vue'
 const props = defineProps<{ profileId: string; evaluationId: string }>()
 const auth = useAuthStore()
 const report = ref<{ status: string; content?: string }>({ status: 'missing' }),
+  loading = ref(true),
   busy = ref(false),
   error = ref('')
 let timer: ReturnType<typeof setTimeout> | undefined,
   disposed = false
 const path = `/api/profiles/${props.profileId}/evaluations/${props.evaluationId}/report`
 async function load() {
+  clearTimeout(timer)
   try {
-    report.value = await api.get(path)
-    if (report.value.status === 'running' && !disposed) timer = setTimeout(load, 2000)
+    const result = await api.get<typeof report.value>(path)
+    if (disposed) return
+    report.value = result
+    error.value = ''
+    if (report.value.status === 'running') timer = setTimeout(load, 2000)
   } catch (e) {
+    if (disposed) return
     error.value = errorMessage(e)
+    // 临时网络故障不抹掉生成状态，回来后继续查询已有任务。
+    if (report.value.status === 'running') timer = setTimeout(load, 3000)
+  } finally {
+    if (!disposed) loading.value = false
   }
 }
 async function generate() {
+  if (loading.value || busy.value || report.value.status === 'running') return
   busy.value = true
   error.value = ''
   try {
@@ -46,12 +57,13 @@ onBeforeUnmount(() => {
       </div>
       <span class="report-seal">AI 解读</span>
     </header>
-    <MarkdownText v-if="report.content" :content="report.content" />
+    <p v-if="loading" class="sub" role="status">正在读取已保存的解读状态…</p>
+    <MarkdownText v-else-if="report.content" :content="report.content" />
     <div v-else-if="report.status === 'running'" class="report-generating">
       <i class="live-dot" />
       <p>正在核对数字、整理建议…<small>可以离开页面，回来后继续查看。</small></p>
     </div>
-    <template v-else
+    <template v-else-if="!error"
       ><p class="sub">
         {{
           report.status === 'failed'
@@ -64,7 +76,9 @@ onBeforeUnmount(() => {
       }}</van-button>
       <p v-if="!auth.isVerified" class="sub">验证邮箱后可生成 AI 解读。</p></template
     >
-    <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+    <p v-if="error" class="form-error" role="alert">
+      {{ error }} <button class="text-link" @click="load">重新读取状态</button>
+    </p>
   </section>
 </template>
 <style scoped>

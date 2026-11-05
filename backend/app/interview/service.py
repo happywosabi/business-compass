@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from uuid import UUID
@@ -20,8 +21,25 @@ from . import tools
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "interview-1"
+PROMPT_VERSION = "interview-2"
 PROMPT = Path(__file__).with_name("prompt.md").read_text()
+
+
+def confirms_evaluation(content: str, previous_reply: str) -> bool:
+    """明确测算指令可直接执行；简短同意须有上一轮邀请，修改或否定交回访谈。"""
+    if re.fullmatch(
+        r"(?:请)?(?:开始测算|确认测算|我确认测算|算吧|算一下|先算一下|跑一版|跑一版吧|跑吧)[吧呀啊哦了！!。\.\s]*",
+        content.strip(),
+    ):
+        return True
+    return bool(
+        re.search(r"测算|跑一版|算一版|算一下|先算", previous_reply)
+        and re.search(r"[？?]|要不要|是否|可以吗", previous_reply)
+        and re.fullmatch(
+            r"(?:好|好的|好啊|可以|可以的|行|确认|确认测算|我确认|我确认测算|开始|开始吧|算吧|算一下|先算一下|跑一版|跑一版吧|跑吧|同意)[吧呀啊哦了！!。\.\s]*",
+            content.strip(),
+        )
+    )
 
 
 class Coordinator:
@@ -92,6 +110,14 @@ async def drive(app, run_id: UUID):
                     raise HTTPException(409, "档案已更新，请确认最新数字后重新发送")
                 conv = await conversation(db, profile.id)
                 previous = await history_context(db, conv.id)
+                previous_reply = next(
+                    (
+                        m.get("content") or ""
+                        for m in reversed(previous)
+                        if m["role"] == "assistant" and not m.get("tool_calls")
+                    ),
+                    "",
+                )
                 user_message = Message(
                     conversation_id=conv.id,
                     run_id=run_id,
@@ -129,12 +155,32 @@ async def drive(app, run_id: UUID):
                             last_cancel_check = time.monotonic()
                         await hub.emit(run_id, "delta", {"text": piece})
 
-                    message, usage = await app.state.llm.complete(
-                        messages,
-                        tools.definitions() if round_number < 5 else None,
-                        model=run.model,
-                        on_delta=delta,
-                    )
+                    if (
+                        round_number == 0
+                        and confirms_evaluation(run.input["content"], previous_reply)
+                        and tools.state(profile)["can_evaluate"]
+                    ):
+                        message, usage = (
+                            {
+                                "role": "assistant",
+                                "content": None,
+                                "tool_calls": [
+                                    {
+                                        "id": f"confirm_{run.id.hex}",
+                                        "type": "function",
+                                        "function": {"name": "run_evaluation", "arguments": "{}"},
+                                    }
+                                ],
+                            },
+                            {},
+                        )
+                    else:
+                        message, usage = await app.state.llm.complete(
+                            messages,
+                            tools.definitions() if round_number < 5 else None,
+                            model=run.model,
+                            on_delta=delta,
+                        )
                     usage_in += usage.get("prompt_tokens", 0)
                     usage_out += usage.get("completion_tokens", 0)
                     await update_run(
@@ -163,7 +209,7 @@ async def drive(app, run_id: UUID):
                         return
                     if round_number >= 5 or len(calls) > 12:
                         raise ValueError("工具调用次数过多，请拆成几条消息")
-                    for call in calls:
+                    for call_index, call in enumerate(calls):
                         await check_cancel(factory, run_id)
                         await hub.emit(run_id, "status", {"text": "正在核对并记下数字…"})
                         try:
@@ -178,6 +224,8 @@ async def drive(app, run_id: UUID):
                                     json.loads(call["function"]["arguments"]),
                                     expected_revision,
                                     row.id,
+                                    user_text=run.input["content"],
+                                    previous_reply=previous_reply,
                                 )
                                 expected_revision = profile.revision
                         except (HTTPException, ValidationError, ValueError, KeyError) as error:
@@ -211,6 +259,48 @@ async def drive(app, run_id: UUID):
                             }
                         )
                         await hub.emit(run_id, "profile", output)
+                        if output.get("evaluation_id"):
+                            # 计算页面负责展示结果；快照提交后即可导航，省去模型再次长篇复述。
+                            completed = {"content": "测算已完成，正在打开结果。", **last_extra}
+                            # 同批未执行的工具仍需配对回复，保证下一轮模型上下文协议完整。
+                            for remaining in calls[call_index + 1 :]:
+                                db.add(
+                                    Message(
+                                        conversation_id=conv.id,
+                                        run_id=run_id,
+                                        ordinal=ordinal,
+                                        payload={
+                                            "role": "tool",
+                                            "tool_call_id": remaining["id"],
+                                            "content": json.dumps(
+                                                {"skipped": "已完成测算，打开结果页面"},
+                                                ensure_ascii=False,
+                                            ),
+                                        },
+                                        prompt_version=PROMPT_VERSION,
+                                    )
+                                )
+                                ordinal += 1
+                            db.add(
+                                Message(
+                                    conversation_id=conv.id,
+                                    run_id=run_id,
+                                    ordinal=ordinal,
+                                    payload={"role": "assistant", "content": completed["content"]},
+                                    prompt_version=PROMPT_VERSION,
+                                )
+                            )
+                            await db.commit()
+                            await update_run(
+                                factory,
+                                run_id,
+                                status="succeeded",
+                                output=completed,
+                                finished_at=utcnow(),
+                            )
+                            await hub.emit(run_id, "replace", {"text": ""})
+                            await hub.emit(run_id, "done", completed)
+                            return
                     await hub.emit(run_id, "replace", {"text": ""})
     except (Exception, asyncio.CancelledError) as error:
         logger.info("AI run %s ended: %s", run_id, type(error).__name__)

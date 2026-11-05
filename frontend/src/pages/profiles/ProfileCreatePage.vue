@@ -29,7 +29,7 @@ async function create() {
   error.value = ''
   try {
     const profile = await profilesApi.create(form)
-    await router.replace(`/profiles/${profile.id}`)
+    await router.replace(`/profiles/${profile.id}/interview`)
   } catch (e) {
     error.value = errorMessage(e)
   } finally {
@@ -46,7 +46,7 @@ async function create() {
         <h2>先记下来，<br />再一步步算清楚。</h2>
         <p>还没确定铺面、拿不准客流，都没关系。每一个数字都可以慢慢补，也可以随时修改。</p>
         <div class="intro-route">
-          <span>建档案</span><i /><span>填数字</span><i /><span>看结果</span>
+          <span>建档案</span><i /><span>聊想法</span><i /><span>看结果</span>
         </div>
       </section>
       <form class="bc-card form-stack create-form" @submit.prevent="create">
@@ -99,9 +99,9 @@ async function create() {
           block
           :loading="saving"
           :disabled="!templates.length"
-          >建好档案，开始填数字 →</van-button
+          >建好档案，和 AI 聊聊 →</van-button
         >
-        <p class="sub">档案仅自己可见。保存后随时可以回来继续。</p>
+        <p class="sub">建好后进入 AI 访谈，也可以选择手动填写。档案仅自己可见。</p>
       </form>
     </div>
   </div>

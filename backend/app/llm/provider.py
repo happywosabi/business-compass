@@ -24,6 +24,7 @@ class DeepSeekProvider:
         *,
         model: str,
         on_delta: Callable[[str], Awaitable[None]] | None = None,
+        thinking: bool | None = None,
     ):
         settings = self.settings
         if not settings.deepseek_api_key.get_secret_value():
@@ -39,9 +40,9 @@ class DeepSeekProvider:
         }
         if tools:
             body["tools"] = tools
-        # 访谈关闭思考以缩短等待；报告使用模型默认模式。
-        if model == settings.interview_model:
-            body["thinking"] = {"type": "disabled"}
+        # 短访谈和已有确定性数字的报告无需消耗隐藏思考预算。
+        if thinking is not None or model == settings.interview_model:
+            body["thinking"] = {"type": "enabled" if thinking else "disabled"}
         for attempt in range(2):
             received = False
             finished = False

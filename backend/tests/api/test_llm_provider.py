@@ -75,3 +75,22 @@ async def test_stream_without_completion_does_not_accept_partial_reply(monkeypat
         await DeepSeekProvider(Settings(_env_file=None, deepseek_api_key="test-key")).complete(
             [], model="deepseek-flash"
         )
+
+
+async def test_report_can_disable_hidden_thinking_to_bound_generation_time(monkeypatch):
+    def handler(request):
+        body = json.loads(request.content)
+        assert body["model"] == "deepseek-v4-pro"
+        assert body["thinking"] == {"type": "disabled"}
+        return httpx.Response(
+            200,
+            text='data: {"choices":[{"delta":{"content":"先核实报价"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+        )
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handler))
+    )
+    provider = DeepSeekProvider(Settings(_env_file=None, deepseek_api_key="test-key"))
+    message, _ = await provider.complete([], model="deepseek-v4-pro", thinking=False)
+    assert message["content"] == "先核实报价"

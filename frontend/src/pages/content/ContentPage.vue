@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { profilesApi, type Profile } from '@/api/profiles'
@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 import PageHead from '@/components/PageHead.vue'
 import CompassMark from '@/components/CompassMark.vue'
 import MarkdownText from '@/components/MarkdownText.vue'
+import { fillField, pendingFields, removeFieldLine } from '@/utils/contentDraft'
 const auth = useAuthStore(),
   route = useRoute(),
   router = useRouter()
@@ -26,6 +27,8 @@ const profiles = ref<Profile[]>([]),
   error = ref(''),
   active = ref<Draft>(),
   editor = ref('')
+const fieldValues = ref<Record<string, string>>({})
+const pending = computed(() => pendingFields(editor.value))
 let timer: ReturnType<typeof setTimeout> | undefined,
   disposed = false,
   sequence = 0
@@ -95,6 +98,7 @@ async function generate() {
       confirmed_facts: facts.value,
     })
     active.value = result
+    fieldValues.value = {}
     editor.value = result.content ?? ''
     await loadDrafts()
   } catch (e) {
@@ -106,8 +110,19 @@ async function generate() {
 function open(draft: Draft) {
   active.value = draft
   editor.value = draft.content ?? ''
+  fieldValues.value = {}
+}
+function fill(field: string) {
+  editor.value = fillField(editor.value, field, fieldValues.value[field] ?? '')
+}
+function omit(field: string) {
+  editor.value = removeFieldLine(editor.value, field)
 }
 async function copy() {
+  if (pending.value.length) {
+    showToast('先填写待填项，或删去不需要的行，再复制')
+    return
+  }
   try {
     await navigator.clipboard.writeText(editor.value)
     showToast('已复制，发布前再核对具体事实')
@@ -213,8 +228,27 @@ onBeforeUnmount(() => {
           <p v-else-if="active.status === 'failed'" class="form-error">
             生成暂未完成。选择选题后可重新生成，已确认的事实仍在。
           </p>
-          <template v-else
-            ><MarkdownText :content="active.content ?? ''" />
+          <template v-else>
+            <section v-if="pending.length" class="draft-fields">
+              <div>
+                <span class="eyebrow">还差一点你的真实信息</span>
+                <h3>补齐 {{ pending.length }} 处，就能复制</h3>
+                <p>AI 把需要你确认的内容留了空位。填入实际情况，或删去不想写的整行。</p>
+              </div>
+              <div v-for="field in pending" :key="field" class="draft-field">
+                <label class="input-label">
+                  {{ field.slice(4, -1) }}
+                  <input v-model="fieldValues[field]" class="bc-input" placeholder="填写真实情况" />
+                </label>
+                <div class="draft-field-actions">
+                  <button class="text-link" :disabled="!fieldValues[field]?.trim()" @click="fill(field)">
+                    填入文案 ↗
+                  </button>
+                  <button class="text-link" @click="omit(field)">删去此行</button>
+                </div>
+              </div>
+            </section>
+            <MarkdownText :content="editor" />
             <details>
               <summary>发布前，改成你自己的话</summary>
               <textarea
@@ -223,9 +257,11 @@ onBeforeUnmount(() => {
                 rows="8"
                 aria-label="编辑文案"
               />
-              <p class="sub">编辑保留在当前页面；复制前请核实【待补充】和具体事实。</p>
+              <p class="sub">编辑保留在当前页面；待填项处理完后即可复制，请核对产品和活动规则。</p>
             </details>
-            <van-button type="primary" @click="copy">复制这份文案 ↗</van-button></template
+            <van-button type="primary" @click="copy">
+              {{ pending.length ? '处理待填项后复制 ↗' : '复制这份文案 ↗' }}
+            </van-button></template
           >
           <div class="draft-sources">
             <h3>这份草稿的依据</h3>
@@ -295,10 +331,10 @@ onBeforeUnmount(() => {
             class="bc-input"
             rows="5"
             maxlength="2000"
-            placeholder="比如：今天拍了手工煮茶过程；用的是真实店内照片。具体价格、活动以你填写的为准。"
+            placeholder="比如：今天到店买奶茶送哪吒周边；可补充真实菜单、价格、活动规则或制作细节。写得越具体，文案越像你的店。"
           />
         </label>
-        <p class="sub">没有提供的价格、地址和活动会留作【待补充】，发布前再确认。</p>
+        <p class="sub">想不到该补什么也没关系，AI 会把关键缺项留成待填提示。补齐或删去后再复制发布。</p>
         <van-button
           type="primary"
           :disabled="!selected || !auth.isVerified"
@@ -450,6 +486,31 @@ onBeforeUnmount(() => {
 }
 .draft-editor {
   margin: 12px 0;
+}
+.draft-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--accent-line);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  animation: compass-rise 0.35s var(--ease);
+}
+.draft-fields h3 {
+  margin: 8px 0;
+  font-size: 17px;
+}
+.draft-fields p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.draft-field-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 12px;
 }
 .draft-result details {
   font-size: 12px;

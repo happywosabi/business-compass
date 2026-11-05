@@ -1,0 +1,98 @@
+{
+  "model": "deepseek-flash",
+  "prompt_version": "content-2",
+  "cases": [
+    {
+      "case": "小红书·周边福利",
+      "input": {
+        "store": {
+          "name": "哪吒仙饮",
+          "city": "深圳"
+        },
+        "platform": "xiaohongshu",
+        "voice": "warm",
+        "confirmed_facts": "今天到店买奶茶会送哪吒周边。未确定周边款式和数量，不宣传折扣。",
+        "topic": {
+          "title": "今天，你最想喝什么？",
+          "angle": "分享真实的门店内容，邀请大家交流口味偏好",
+          "sources": []
+        }
+      },
+      "content": "深圳奶茶搭子🥤来领哪吒周边啦\n\n喝奶茶＋收周边，今天的小惊喜来了🥹\n\n今天来哪吒仙饮买奶茶，会送哪吒周边🎁\n想喝奶茶的朋友，来店里一起聊聊～\n\n🎁 周边款式：【待填：实际赠品款式】\n📌 领取说明：【待填：领取条件与数量规则，无额外条件也请说明】\n\n今天这杯，你最想喝什么？🧋\n果茶派还是奶茶派，评论区留个你的选择👇\n\n#深圳奶茶 #哪吒仙饮 #哪吒周边 #奶茶搭子 #今天喝什么",
+      "usage": {
+        "prompt_tokens": 2132,
+        "completion_tokens": 130
+      },
+      "unsupported_details": []
+    },
+    {
+      "case": "小红书·真实菜单",
+      "input": {
+        "store": {
+          "name": "哪吒仙饮",
+          "city": "深圳"
+        },
+        "platform": "xiaohongshu",
+        "voice": "playful",
+        "confirmed_facts": "店内确有茉莉奶绿、柠檬红茶、芒果冰茶三款。茉莉奶绿可选三分糖加珍珠；柠檬红茶可选少冰；芒果冰茶可选五分糖。没有热量资料。",
+        "topic": {
+          "title": "今天，你最想喝什么？",
+          "angle": "分享真实的门店内容，邀请大家交流口味偏好",
+          "sources": []
+        }
+      },
+      "content": "深圳奶茶搭子集合🥤今天想喝哪杯？\n\n店里常驻这三款，点单的时候又纠结了吧😆\n把真实的点单搭配摆出来，直接抄作业👇\n\n1️⃣ 茉莉奶绿＋三分糖＋珍珠\n2️⃣ 柠檬红茶＋少冰\n3️⃣ 芒果冰茶＋五分糖\n\n选择困难的时候，就按这个来🧋\n\n你是果茶派还是奶茶派？评论区留个你的答案👇\n\n#深圳奶茶 #哪吒仙饮 #奶茶点单 #奶茶搭子 #今天喝什么",
+      "usage": {
+        "prompt_tokens": 2152,
+        "completion_tokens": 117
+      },
+      "unsupported_details": []
+    },
+    {
+      "case": "朋友圈·制作日常",
+      "input": {
+        "store": {
+          "name": "哪吒仙饮",
+          "city": "深圳"
+        },
+        "platform": "moments",
+        "voice": "simple",
+        "confirmed_facts": "今天拍了手工煮茶的视频。没有促销活动，不声称现煮现售。",
+        "topic": {
+          "title": "今天，你最想喝什么？",
+          "angle": "分享真实的门店内容，邀请大家交流口味偏好",
+          "sources": []
+        }
+      },
+      "content": "今天拍了段手工煮茶的视频🍵\n把做茶的一个片段记录下来，发给大家看看。\n\n看完这段，今天你最想喝什么？",
+      "usage": {
+        "prompt_tokens": 2125,
+        "completion_tokens": 30
+      },
+      "unsupported_details": []
+    },
+    {
+      "case": "小红书·热销资料缺失",
+      "input": {
+        "store": {
+          "name": "哪吒仙饮",
+          "city": "深圳"
+        },
+        "platform": "xiaohongshu",
+        "voice": "playful",
+        "confirmed_facts": "想写一份本店热销饮品推荐，但还没有提供饮品名字和销量统计。请留出可填的位置。",
+        "topic": {
+          "title": "本店热销饮品推荐",
+          "angle": "分享真实的门店内容，邀请大家交流口味偏好",
+          "sources": []
+        }
+      },
+      "content": "深圳点单不迷路🥤哪吒仙饮喝哪杯\n\n奶茶搭子集合啦，今天把点单参考先放这儿👇\n\n🧋【待填：一款真实饮品名＋可选糖冰或搭配】\n📊【待填：真实热销饮品及统计时间或依据，不确定可删去此行】\n\n你是果茶派还是奶茶派？评论区聊聊🫶\n\n#深圳奶茶 #哪吒仙饮 #奶茶点单 #奶茶搭子 #今天喝什么",
+      "usage": {
+        "prompt_tokens": 2136,
+        "completion_tokens": 103
+      },
+      "unsupported_details": []
+    }
+  ]
+}

@@ -81,7 +81,9 @@ async def test_settings(anyio_backend) -> Settings:
 
 @pytest.fixture
 async def app(test_settings):
-    application = create_app(settings=test_settings, mail_sender=MemoryMailSender())
+    application = create_app(
+        settings=test_settings.model_copy(deep=True), mail_sender=MemoryMailSender()
+    )
     async with application.state.engine.begin() as conn:
         await conn.execute(text("TRUNCATE users, sessions, email_tokens CASCADE"))
     yield application

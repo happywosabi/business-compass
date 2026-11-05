@@ -12,6 +12,8 @@ from app.profiles import service as profiles
 from app.profiles.schemas import ProfileUpdate, StrictBody
 from app.templates import load_template
 
+from .amounts import daily_orders, guard_changes, monthly_amount
+
 
 class UpdateParameters(StrictBody):
     changes: dict[str, Any] = Field(min_length=1, max_length=40)
@@ -47,12 +49,39 @@ class Empty(StrictBody):
     pass
 
 
+class PeriodicValue(StrictBody):
+    key: Literal[
+        "fixed_cost.rent", "fixed_cost.owner_salary", "fixed_cost.staff", "revenue.daily_orders"
+    ]
+    amount: float = Field(
+        ge=0,
+        allow_inf_nan=False,
+        description="用户原始金额（元）或订单数量，不是换算后的值；员工填写每人金额",
+    )
+    period: Literal["day", "month", "year"]
+    days_per_month: float | None = Field(
+        default=None,
+        gt=0,
+        le=31,
+        description="用户明确给出或确认的工作/支付/营业天数；不确定就先追问，不能猜30",
+    )
+    staff_count: int | None = Field(
+        default=None, ge=1, description="员工人数，不含单独记老板工资的本人；写staff时必填"
+    )
+    staff_role: str = Field(default="店员", min_length=1, max_length=60)
+    reason: str = Field(min_length=1, max_length=1000)
+
+
 TOOLS = {
     "update_parameters": (
         UpdateParameters,
-        "记录参数。键名与完整三档结构见参数清单；来源仅 user 或 ai_inferred。",
+        "记录参数。键名与完整三档结构见参数清单；来源仅 user 或 ai_inferred。撤回字段时将该键直接设为null，不要写base:null。",
     ),
     "update_profile_info": (ProfileInfo, "更新基本信息，城市、名称、阶段或价值主张。"),
+    "record_periodic_value": (
+        PeriodicValue,
+        "记录带日/月/年单位的租金、老板工资、员工每人工资或单量，代码负责换算。日薪需先确认工作天数，月单量需确认营业天数。金额不能当单量。",
+    ),
     "use_default": (Defaults, "用户同意后给指定参数补默认值，保留来源与依据。"),
     "estimate_traffic": (Traffic, "调用客流估算，保存原始输入但不填写日单量。"),
     "what_if": (WhatIf, "临时试算，不保存；参数未齐时返回缺项。"),
@@ -148,7 +177,9 @@ def state(profile):
     }
 
 
-async def execute(db, profile, name, arguments, revision, message_id: UUID):
+async def execute(
+    db, profile, name, arguments, revision, message_id: UUID, *, user_text="", previous_reply=""
+):
     if name not in TOOLS:
         raise ValueError("未知工具")
     body = TOOLS[name][0].model_validate(arguments)
@@ -157,8 +188,16 @@ async def execute(db, profile, name, arguments, revision, message_id: UUID):
     template = load_template(profile.template_key)
     extra = {}
     if name == "update_parameters":
+        normalized = {
+            key: None if isinstance(value, dict) and value.get("base", "missing") is None else value
+            for key, value in body.changes.items()
+        }
+        guard_changes(normalized, user_text, previous_reply)
         changes = {}
-        for key, value in body.changes.items():
+        for key, value in normalized.items():
+            if value is None:
+                changes[key] = None
+                continue
             if not isinstance(value, dict) or "base" not in value:
                 value = {"base": value, "source": "user"}
             if value.get("source", "user") not in {"user", "ai_inferred"}:
@@ -171,6 +210,35 @@ async def execute(db, profile, name, arguments, revision, message_id: UUID):
             profile,
             revision,
             changes,
+            source="ai_extraction",
+            reason=body.reason,
+            message_id=message_id,
+            commit=False,
+        )
+    elif name == "record_periodic_value":
+        if body.key == "revenue.daily_orders":
+            guard_changes({body.key: body.amount}, user_text, previous_reply, converting=True)
+            value = daily_orders(body.amount, body.period, body.days_per_month)
+        else:
+            value = monthly_amount(body.amount, body.period, body.days_per_month)
+        unit = "单" if body.key == "revenue.daily_orders" else "元"
+        period_label = {"day": "天", "month": "月", "year": "年"}[body.period]
+        note = f"用户原话：{body.amount:g}{unit}/{period_label}。"
+        if body.days_per_month is not None:
+            note += f"按用户确认每月{body.days_per_month:g}天换算。"
+        if body.period == "year":
+            note += "按每年12个月换算。"
+        if body.key == "fixed_cost.staff":
+            if body.staff_count is None:
+                raise ValueError(
+                    "请确认除老板本人外的员工人数，亲属是否领工资需单独询问，不能默认免费劳动。"
+                )
+            value = [{"role": body.staff_role, "count": body.staff_count, "monthly_cost": value}]
+        profile = await profiles.edit_parameters(
+            db,
+            profile,
+            revision,
+            {body.key: {"base": value, "source": "user", "note": note}},
             source="ai_extraction",
             reason=body.reason,
             message_id=message_id,

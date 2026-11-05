@@ -87,6 +87,7 @@ async def generate(
     # 由服务器选定来源，不接受模型或客户端伪造来源链接。
     data = {
         **body.model_dump(mode="json", exclude={"request_id"}),
+        "prompt_version": service.PROMPT_VERSION,
         "topic": topic,
         "store": {
             "name": profile.name,

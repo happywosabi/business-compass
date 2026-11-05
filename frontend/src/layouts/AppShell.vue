@@ -85,7 +85,7 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible
       </RouterLink>
     </aside>
 
-    <div class="main chart-grid">
+    <div class="main chart-grid" :class="{ interviewing: route.path.endsWith('/interview') }">
       <Transition name="bar">
         <div v-if="auth.user && !auth.isVerified" class="verify-bar" role="status">
           <AppIcon name="mail" :size="18" />
@@ -135,6 +135,31 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible
   min-width: 0;
   min-height: 100vh;
   min-height: 100dvh;
+}
+.main.interviewing {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+}
+.main.interviewing :deep(.interview-page) {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+.main.interviewing .verify-bar {
+  flex-shrink: 0;
+}
+@media (max-width: 767px) {
+  .main {
+    min-height: calc(100vh - var(--van-tabbar-height, 56px) - env(safe-area-inset-bottom, 0px) - 1px);
+    min-height: calc(100dvh - var(--van-tabbar-height, 56px) - env(safe-area-inset-bottom, 0px) - 1px);
+  }
+  .main.interviewing {
+    height: calc(100vh - var(--van-tabbar-height, 56px) - env(safe-area-inset-bottom, 0px) - 1px);
+    height: calc(100dvh - var(--van-tabbar-height, 56px) - env(safe-area-inset-bottom, 0px) - 1px);
+  }
 }
 
 /* ---- 左侧导航栏 ---- */

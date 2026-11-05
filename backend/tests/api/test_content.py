@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import update
 
-from app.content.service import topics
+from app.content.service import topics, unsupported_details, write_draft
 from app.db.base import utcnow
 from app.db.models import User
 
@@ -120,3 +120,46 @@ def test_hot_candidate_filter_url_and_vector_similarity():
     assert cosine([1, 0], [0, 1]) == 0
     assert cosine([1], [1, 2]) == 0
     assert fingerprint("咖啡，散步！") == fingerprint("咖啡散步")
+
+
+async def test_platform_draft_retries_invented_rules_and_preserves_confirmed_facts():
+    provider = FakeLLM(
+        [
+            {"role": "assistant", "content": "买奶茶送周边，款式随机，先到先选！"},
+            {
+                "role": "assistant",
+                "content": "深圳奶茶搭子🥤今天来领哪吒周边\n\n买奶茶就送哪吒周边🎁\n\n🎁【待填：赠品款式及领取规则，是否随机请确认】\n\n今天最想喝哪杯？\n\n#深圳奶茶 #哪吒仙饮 #哪吒周边 #奶茶搭子",
+            },
+        ]
+    )
+    facts = {
+        "confirmed_facts": "今天买奶茶送哪吒周边",
+        "platform": "xiaohongshu",
+        "voice": "playful",
+    }
+    content, usage = await write_draft(provider, facts, "fake")
+    assert "【待填：赠品款式及领取规则，是否随机请确认】" in content
+    assert "先到先选" not in content and "买奶茶就送哪吒周边" in content
+    assert len(provider.calls) == 2 and usage["prompt_tokens"] == 20
+    assert not unsupported_details("周边款式随机", {"confirmed_facts": "周边随机赠送"})
+    provider = FakeLLM([{"role": "assistant", "content": "热量200大卡，无负担"}] * 2)
+    with pytest.raises(ValueError, match="未确认"):
+        await write_draft(provider, facts, "fake")
+
+
+def test_unknown_claims_must_be_wholly_inside_fillable_fields():
+    facts = {"confirmed_facts": "今天送周边。未确定款式是否随机。没有销量数据。"}
+    draft = "买奶茶送周边🎁\n【待填：当天真实天气】\n【待填：卖得最多的真实饮品及统计依据】"
+    assert not unsupported_details(draft, facts)
+    assert unsupported_details("天气热，来一杯【待填：饮品名】", facts)
+    assert unsupported_details("卖得最多的是【待填：饮品名】", facts)
+    assert unsupported_details("款式随机", facts)
+    assert unsupported_details("热销榜", {"confirmed_facts": "想写热销推荐，未提供销量数据"})
+    assert not unsupported_details("热销榜", {"confirmed_facts": "上周热销第一是奶绿"})
+
+
+async def test_draft_does_not_accept_a_questionnaire_of_placeholders():
+    many = "\n".join(f"【待填：第{i}项信息】" for i in range(4))
+    provider = FakeLLM([{"role": "assistant", "content": many}] * 2)
+    with pytest.raises(ValueError, match="过多待填项"):
+        await write_draft(provider, {}, "fake")

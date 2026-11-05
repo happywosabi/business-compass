@@ -87,6 +87,27 @@ def verify_numbers(text: str, allowed: dict) -> bool:
     return not re.search(r"\d", "".join(remaining))
 
 
+def report_material(snapshot):
+    """模型只接收有含义的可引用结果，避免把无标签数字或其他场景混在一起。"""
+    base = snapshot.results["scenarios"]["base"]
+    material = {
+        "稳定期月营业额": f"{base['steady_monthly_revenue']:g}元",
+        "稳定期每月固定成本": f"{base['steady_fixed_cost']:g}元",
+        "稳定期每月现金结余（扣老板工资）": f"{base['steady_monthly_cash']:g}元",
+        "稳定期每月现金结余（未扣老板工资）": f"{base['steady_monthly_cash_excl_owner']:g}元",
+        "回本时间": f"第{base['payback_month']}个月" if base["payback_month"] else "推演内未回本",
+        "租约内回本": base["lease_check"] == "pass",
+        "参数需核实": snapshot.results["default_keys"],
+        "是否已提供不确定范围": bool(snapshot.results["sensitivity"]),
+    }
+    if base["suggested_funding"]:
+        lo, hi = base["suggested_funding"]
+        material["准备资金范围"] = f"{lo:g}元至{hi:g}元"
+    else:
+        material["准备资金范围"] = "稳定期未盈利，无法给出有限资金建议"
+    return material
+
+
 async def generate(app, run_id, snapshot):
     factory, settings = app.state.session_factory, app.state.settings
     try:
@@ -97,22 +118,9 @@ async def generate(app, run_id, snapshot):
                 prompt = (
                     "你是商业罗盘，用大白话写简短的开店解读，最多600字。包括投入判断的边界、需要核实的假设、低成本验证方法。"
                     "只能引用允许数字表中的数字，不自行计算。阿拉伯数字后必须紧跟单位（元、万元、个月、杯、%）；每个范围端点各带单位。"
-                    "不要数字编号，不引用年份和引擎版本。结论只能是需要进一步核实，不能说可以投入、建议开店、低于某数就不要开等投资指令。没有三档范围时说明需补范围。稳定期亏钱时不得给出有限资金建议。不保证赚钱。\n允许数字："
-                    + json.dumps(allowed, ensure_ascii=False)
-                    + "\n工具摘要："
-                    + json.dumps(
-                        {
-                            "summary": snapshot.summary,
-                            "scenarios": {
-                                k: {key: value for key, value in v.items() if key != "monthly"}
-                                for k, v in snapshot.results["scenarios"].items()
-                            },
-                            "checks": snapshot.results["checks"],
-                            "sensitivity": snapshot.results["sensitivity"][:3],
-                            "default_keys": snapshot.results["default_keys"],
-                        },
-                        ensure_ascii=False,
-                    )
+                    "禁止用汉字写金额、月份或百分比，必须保留阿拉伯数字及原含义。"
+                    "不要数字编号，不引用年份和引擎版本。结论只能是需要进一步核实，不能说可以投入、建议开店、低于某数就不要开等投资指令。没有三档范围时说明需补范围。稳定期亏钱时不得给出有限资金建议。不保证赚钱。\n可引用结果（键是含义，值是带单位的计算结果）："
+                    + json.dumps(report_material(snapshot), ensure_ascii=False)
                 )
                 content, accepted, total_in, total_out = "", False, 0, 0
                 for attempt in range(2):
@@ -124,10 +132,11 @@ async def generate(app, run_id, snapshot):
                                 "role": "user",
                                 "content": "请解读这份结果。"
                                 if attempt == 0
-                                else "上次数字核对未通过。只引用允许数字表中带单位的值，无法核实就省略数字。",
+                                else "上次数字核对未通过。这次完全不写任何金额、月份、比例或数字，只说明需要核实的假设和低成本验证方法。不要重复未核实的数字。",
                             },
                         ],
                         model=run.model,
+                        thinking=False,
                     )
                     total_in += usage.get("prompt_tokens", 0)
                     total_out += usage.get("completion_tokens", 0)
@@ -158,7 +167,7 @@ async def generate(app, run_id, snapshot):
             report = await db.scalar(
                 select(EvaluationReport).where(EvaluationReport.evaluation_id == snapshot.id)
             )
-            if report:
+            if report and report.run_id == run_id:
                 report.status, report.content = "failed", None
                 await db.commit()
         await update_run(

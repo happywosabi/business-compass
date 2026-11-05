@@ -37,7 +37,8 @@ const draft = ref(''),
   quick = ref<string[]>([]),
   cardOpen = ref(false),
   composition = ref(false)
-const end = ref<HTMLElement>()
+const chatLog = ref<HTMLElement>()
+const followLatest = ref(true)
 const visible = computed(() =>
   history.value.messages.filter((m) => m.role === 'user' || (!m.tool_calls && m.content)),
 )
@@ -49,15 +50,29 @@ let controller: AbortController | undefined,
   poll: ReturnType<typeof setTimeout> | undefined,
   disposed = false
 const storageKey = `bc-interview-pending-${id}`
-function scroll() {
-  nextTick(() =>
-    end.value?.scrollIntoView({
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        ? 'instant'
-        : 'smooth',
-      block: 'end',
-    }),
-  )
+let navigating = false
+function scroll(force = false) {
+  nextTick(() => {
+    const log = chatLog.value
+    if (!log || (!force && !followLatest.value)) return
+    log.scrollTo({
+      top: log.scrollHeight,
+      behavior:
+        force && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'smooth'
+          : 'instant',
+    })
+  })
+}
+function trackScroll() {
+  const log = chatLog.value
+  if (log) followLatest.value = log.scrollHeight - log.scrollTop - log.clientHeight < 100
+}
+async function openResult(evaluationId: string) {
+  if (disposed || navigating) return
+  navigating = true
+  localStorage.removeItem(storageKey)
+  await router.push(`/profiles/${id}/results/${evaluationId}`)
 }
 async function refreshProfile() {
   profile.value = await profilesApi.get(id)
@@ -83,6 +98,7 @@ async function load() {
     error.value = errorMessage(e)
   } finally {
     loading.value = false
+    scroll(true)
   }
 }
 function recover() {
@@ -101,6 +117,10 @@ function recover() {
         localStorage.removeItem(storageKey)
         await loadHistory()
         await refreshProfile()
+        if (run.output.evaluation_id) {
+          await openResult(run.output.evaluation_id)
+          return
+        }
         scroll()
       }
     } catch (e) {
@@ -126,6 +146,7 @@ function consume({ event, data }: StreamEvent) {
     if (data.quick_replies) quick.value = data.quick_replies as string[]
   }
   if (event === 'error') error.value = String(data.message)
+  if (event === 'done' && typeof data.evaluation_id === 'string') void openResult(data.evaluation_id)
   if (event === 'resume') {
     const run = data as unknown as Run
     runId.value = run.id
@@ -151,14 +172,21 @@ async function send(content = draft.value, retry = false) {
   error.value = ''
   streamText.value = ''
   pending.value = true
+  followLatest.value = true
+  scroll(true)
   status.value = '罗盘正在整理思路…'
   quick.value = []
   controller = new AbortController()
   try {
     await sendInterview(id, body, controller.signal, consume)
+    if (disposed) return
     await loadHistory()
     await refreshProfile()
     const latest = history.value.runs.at(-1)
+    if (latest?.output.evaluation_id) {
+      await openResult(latest.output.evaluation_id)
+      return
+    }
     if (latest?.status !== 'running') {
       pending.value = false
       streamText.value = ''
@@ -217,9 +245,21 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <div class="page interview-page">
-    <PageHead title="把开店的想法，一点点聊清楚" :back="`/profiles/${id}`" back-label="返回档案" />
+    <PageHead title="把开店的想法，一点点聊清楚" :back="`/profiles/${id}`" back-label="返回档案">
+      <template #actions>
+        <router-link class="text-link" :to="`/profiles/${id}`">手动填写 ↗</router-link>
+      </template>
+    </PageHead>
     <div v-if="loading" class="skeleton" style="height: 400px" />
     <div v-else-if="profile" class="interview-layout">
+      <div class="chat-summary">
+        <div>
+          <b>{{ profile.name }}</b><span>关键数字 {{ progress }} / 7</span>
+        </div>
+        <button class="text-link" :disabled="progress !== 7 || pending" @click="evaluate">
+          {{ progress === 7 ? '查看测算 ↗' : '继续聊清楚' }}
+        </button>
+      </div>
       <section class="chat-area bc-card">
         <header class="chat-head">
           <div class="assistant-mark">
@@ -233,10 +273,14 @@ onBeforeUnmount(() => {
             ><i class="live-dot" />{{ pending ? '正在思考' : '随时继续' }}</span
           >
         </header>
-        <div v-if="!auth.isVerified" class="form-error">
-          验证邮箱后就能开始 AI 访谈。你也可以先在档案里手工填写数字。
-        </div>
-        <div class="chat-log" role="log" aria-label="访谈消息">
+        <div
+          ref="chatLog"
+          class="chat-log"
+          role="log"
+          aria-label="访谈消息"
+          tabindex="0"
+          @scroll="trackScroll"
+        >
           <div v-if="!visible.length" class="chat-welcome">
             <CompassMark :size="85" motion="settle" /><span class="eyebrow"
               >每一个好生意，都始于一个问题</span
@@ -273,8 +317,14 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </article>
-          <div ref="end" />
         </div>
+        <button
+          v-if="!followLatest"
+          class="latest-message text-link"
+          @click="followLatest = true; scroll(true)"
+        >
+          回到最新消息 ↓
+        </button>
         <div v-if="error" class="form-error" role="alert">
           {{ error
           }}<button
@@ -342,7 +392,11 @@ onBeforeUnmount(() => {
           <van-button type="primary" :disabled="progress !== 7 || pending" @click="evaluate"
             >先算一下 ↗</van-button
           >
-          <router-link v-if="resultId" class="text-link" :to="`/profiles/${id}/results/${resultId}`">打开刚才的测算结果 ↗</router-link>
+          <router-link
+            v-if="resultId"
+            class="text-link"
+            :to="`/profiles/${id}/results/${resultId}`"
+          >打开刚才的测算结果 ↗</router-link>
           <button
             class="text-link profile-toggle"
             :aria-expanded="cardOpen"
@@ -361,7 +415,7 @@ onBeforeUnmount(() => {
             >
           </div>
           <router-link class="text-link" :to="`/profiles/${id}`"
-            >打开完整档案，直接修改 ↗</router-link
+            >手动填写，打开完整档案 ↗</router-link
           >
         </section>
         <p class="chat-note">你提供的数字、暂用估算和默认值会分别标明来源。随时核实，随时调整。</p>
@@ -370,16 +424,32 @@ onBeforeUnmount(() => {
   </div>
 </template>
 <style scoped>
+.chat-summary {
+  display: none;
+}
+.interview-page {
+  height: 100vh;
+  height: 100dvh;
+  padding-bottom: 28px;
+}
 .interview-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: 22px;
   align-items: start;
+  flex: 1;
+  min-height: 0;
 }
 .chat-area {
   padding: 0;
   overflow: hidden;
-  min-height: 65vh;
+  height: 100%;
+  min-height: 400px;
+  max-height: 980px;
+  gap: 14px;
+}
+.chat-area > :not(.chat-log) {
+  flex-shrink: 0;
 }
 .chat-head {
   display: flex;
@@ -412,7 +482,30 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  min-height: 330px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--surface-2);
+}
+.chat-log::-webkit-scrollbar {
+  width: 7px;
+}
+.chat-log::-webkit-scrollbar-track {
+  background: var(--surface-2);
+}
+.chat-log::-webkit-scrollbar-thumb {
+  background: var(--accent-line);
+  border-radius: 7px;
+}
+.chat-log > * {
+  flex-shrink: 0;
+}
+.latest-message {
+  align-self: center;
+  font-size: 12px;
 }
 .chat-welcome {
   display: flex;
@@ -573,6 +666,8 @@ onBeforeUnmount(() => {
 .chat-profile {
   position: sticky;
   top: 25px;
+  max-height: 100%;
+  overflow-y: auto;
 }
 .progress-card {
   border-color: var(--accent-line);
@@ -657,13 +752,58 @@ onBeforeUnmount(() => {
   }
 }
 @media (max-width: 767px) {
+  .interview-page {
+    height: calc(100vh - var(--van-tabbar-height, 56px) - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - var(--van-tabbar-height, 56px) - env(safe-area-inset-bottom, 0px));
+    padding-top: 14px;
+    padding-bottom: 12px;
+    gap: 12px;
+  }
   .interview-layout {
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .interview-page :deep(.page-head) {
+    position: relative;
+  }
+  .interview-page :deep(.ph-actions) {
+    position: absolute;
+    top: 4px;
+    right: 0;
+    font-size: 13px;
+  }
+  .chat-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-line);
+    border-radius: 10px;
+    font-size: 12px;
+    gap: 12px;
+  }
+  .chat-summary div {
+    min-width: 0;
+  }
+  .chat-summary b {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chat-summary span {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .chat-summary button {
+    flex-shrink: 0;
+    font-size: 12px;
   }
   .chat-profile {
-    position: static;
-    width: 100%;
+    display: none;
   }
   .progress-card {
     padding: 16px;
@@ -677,6 +817,9 @@ onBeforeUnmount(() => {
   }
   .chat-area {
     width: 100%;
+    height: auto;
+    flex: 1;
+    min-height: 0;
   }
   .chat-head {
     padding: 15px;

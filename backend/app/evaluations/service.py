@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Evaluation, Profile
-from app.engine import PhysicalStoreParams, evaluate, what_if
+from app.engine import ENGINE_VERSION, PhysicalStoreParams, evaluate, what_if
 from app.profiles import service as profiles
 from app.templates import load_template
 
@@ -60,6 +60,20 @@ async def create_evaluation(
         raise HTTPException(409, "档案已更新，请刷新后再测算")
     template = load_template(current.template_key)
     params = PhysicalStoreParams.model_validate(current.parameters)
+    if label is None and trigger in {"user_request", "interview"}:
+        latest = await db.scalar(
+            select(Evaluation)
+            .where(Evaluation.profile_id == current.id)
+            .order_by(Evaluation.created_at.desc(), Evaluation.id.desc())
+            .limit(1)
+        )
+        if (
+            latest is not None
+            and latest.parameters == current.parameters
+            and latest.engine_version == ENGINE_VERSION
+            and latest.template_version == template.version
+        ):
+            return latest
     profiles.validate_ranges(params)
     missing = template.quick_missing(params)
     if missing:
