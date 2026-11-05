@@ -3,6 +3,7 @@
  * 罗盘：品牌标志，也用于「正在计算」。
  * - simple：只画外圈和指针（小尺寸的标志用）
  * - motion：settle 指针转一下后定住；seek 指针来回轻摆（等待中）
+ * - hoverSway：鼠标移入时轻摆一次，随后回正
  * - dark：画在深海蓝底上
  * 动画用 CSS 写，系统开启「减少动态效果」时会被全局规则关掉。
  */
@@ -14,9 +15,21 @@ const props = withDefaults(
     simple?: boolean
     dark?: boolean
     motion?: 'none' | 'settle' | 'seek'
+    hoverSway?: boolean
   }>(),
-  { size: 120, simple: false, dark: false, motion: 'none' },
+  { size: 120, simple: false, dark: false, motion: 'none', hoverSway: false },
 )
+
+const swaying = ref(false)
+function sway(event: PointerEvent) {
+  if (
+    props.hoverSway &&
+    event.pointerType === 'mouse' &&
+    window.matchMedia('(hover: hover) and (prefers-reduced-motion: no-preference)').matches
+  ) {
+    swaying.value = true
+  }
+}
 
 const ticks = computed(() => {
   if (props.simple) return []
@@ -55,6 +68,7 @@ defineExpose({ play })
     :height="size"
     aria-hidden="true"
     focusable="false"
+    @pointerenter="sway"
   >
     <circle class="ring" cx="60" cy="60" :r="simple ? 54 : 56" />
     <template v-if="!simple">
@@ -71,9 +85,11 @@ defineExpose({ play })
       />
       <text class="north" x="60" y="17" text-anchor="middle">北</text>
     </template>
-    <g :key="playKey" class="needle" :class="motion">
-      <path class="n-north" :d="simple ? 'M60 14 L71 60 L49 60 Z' : 'M60 22 L67 60 L53 60 Z'" />
-      <path class="n-south" :d="simple ? 'M60 106 L71 60 L49 60 Z' : 'M60 98 L67 60 L53 60 Z'" />
+    <g class="needle-hover" :class="{ swaying }" @animationend.self="swaying = false">
+      <g :key="playKey" class="needle" :class="motion">
+        <path class="n-north" :d="simple ? 'M60 14 L71 60 L49 60 Z' : 'M60 22 L67 60 L53 60 Z'" />
+        <path class="n-south" :d="simple ? 'M60 106 L71 60 L49 60 Z' : 'M60 98 L67 60 L53 60 Z'" />
+      </g>
     </g>
     <circle class="pin" cx="60" cy="60" :r="simple ? 7 : 4" />
   </svg>
@@ -157,7 +173,8 @@ defineExpose({ play })
 }
 
 /* 指针动画 */
-.needle {
+.needle,
+.needle-hover {
   transform-origin: 60px 60px;
   transform-box: view-box;
 }
@@ -166,6 +183,27 @@ defineExpose({ play })
 }
 .needle.seek {
   animation: seek 1.6s ease-in-out infinite;
+}
+.needle-hover.swaying {
+  animation: hover-sway 0.9s ease-in-out;
+}
+@keyframes hover-sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  22% {
+    transform: rotate(20deg);
+  }
+  45% {
+    transform: rotate(-13deg);
+  }
+  65% {
+    transform: rotate(7deg);
+  }
+  83% {
+    transform: rotate(-3deg);
+  }
 }
 @keyframes settle {
   0% {

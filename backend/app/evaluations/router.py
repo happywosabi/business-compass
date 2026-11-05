@@ -6,9 +6,10 @@ from sqlalchemy import select
 from app.auth.dependencies import CurrentUser
 from app.db.models import Evaluation
 from app.deps import DB
-from app.engine import PhysicalStoreParams, WhatIfResult
-from app.engine.params import ALL_KEYS
+from app.engine import WhatIfResult
+from app.engine.orchard import OrchardWhatIf
 from app.profiles import service as profiles
+from app.templates.registry import parameter_keys, parse_parameters
 
 from . import service
 from .schemas import ApplyWhatIf, EvaluationCreate, EvaluationLabel, EvaluationOut, WhatIfRequest
@@ -59,7 +60,7 @@ async def label(
     return item
 
 
-@router.post("/what-if", response_model=WhatIfResult)
+@router.post("/what-if", response_model=WhatIfResult | OrchardWhatIf)
 async def preview(profile_id: UUID, body: WhatIfRequest, db: DB, user: CurrentUser):
     profile = await profiles.get_owned_profile(db, user.id, profile_id)
     return await service.try_changes(db, profile, body.changes, body.evaluation_id, body.revision)
@@ -71,12 +72,14 @@ async def apply(profile_id: UUID, body: ApplyWhatIf, db: DB, user: CurrentUser):
     snapshot = await service.get_snapshot(db, profile, body.evaluation_id)
     await service.try_changes(db, profile, body.changes, body.evaluation_id, body.revision)
     # 老报告上的试算以老报告完整参数为基准，确认应用时也保持同一基准。
-    restored = PhysicalStoreParams.model_validate(snapshot.parameters).with_values(body.changes)
+    restored = parse_parameters(snapshot.template_key, snapshot.parameters).with_values(
+        body.changes
+    )
     for key in body.changes:
         value = restored.get(key)
         if value:
             restored = restored.with_values({key: {**value.model_dump(), "source": "user"}})
-    changes = {k: restored.get(k) for k in ALL_KEYS}
+    changes = {k: restored.get(k) for k in parameter_keys(restored)}
     profile = await profiles.edit_parameters(
         db,
         profile,

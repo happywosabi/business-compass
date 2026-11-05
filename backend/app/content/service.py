@@ -20,15 +20,19 @@ CALENDAR = [
     (12, 31, "年末", "记录这一年门店值得记住的小事"),
 ]
 CALENDAR_SOURCE = None
-PROMPT_VERSION = "content-2"
+PROMPT_VERSION = "content-3"
+ORCHARD_PROMPT = Path(__file__).with_name("orchard_prompt.md").read_text()
 PROMPT = Path(__file__).with_name("prompt.md").read_text()
 PLACEHOLDER = re.compile(r"【待填：[^【】\n]+】")
 
 
 def unsupported_details(content: str, data: dict) -> list[str]:
+    confirmed = data.get("confirmed_facts", "")
+    if data.get("template_key") == "orchard":
+        confirmed += "。" + json.dumps(data.get("store", {}).get("supply", {}), ensure_ascii=False)
     facts = "。".join(
         clause
-        for clause in re.split(r"[。；;，,\n]", data.get("confirmed_facts", ""))
+        for clause in re.split(r"[。；;，,\n]", confirmed)
         if not re.search(
             r"想写|想做|未(?:确定|提供|确认)|不知道|不确定|没有提供|没有.{0,8}(?:资料|数据|依据)|不(?:宣传|声称)",
             clause,
@@ -37,6 +41,20 @@ def unsupported_details(content: str, data: dict) -> list[str]:
     # 完整的未知断言可留给用户填写；空位外仍不允许模型替用户编造具体事实。
     assertions = PLACEHOLDER.sub("", content)
     groups = [
+        *(
+            [
+                r"有机|绿色认证|无农残",
+                r"糖度|甜度|\d+(?:\.\d+)?度",
+                r"包邮|免运费",
+                r"当天到|次日达|隔日达|当天发货",
+                r"产自|原产地",
+                r"(?:进入|开始|正在|正值).{0,5}采收|采收期",
+                r"统货.{0,12}(?:大小|没法|不能)|大小不一",
+                r"第一时间补|按订单.{0,5}发货",
+            ]
+            if data.get("template_key") == "orchard"
+            else []
+        ),
         r"随机|盲盒",
         r"先到先选|先到先得",
         r"送完即止|数量有限|限量|限前\d+",
@@ -59,6 +77,29 @@ def unsupported_details(content: str, data: dict) -> list[str]:
 
 
 def topics(profile, today: date):
+    if getattr(profile, "template_key", "physical_store") == "orchard":
+        return [
+            {
+                "id": f"orchard:{k}",
+                "title": title,
+                "angle": angle,
+                "date": None,
+                "kind": "orchard",
+                "sources": [
+                    {
+                        "title": f"{profile.name} · 果园供货档案",
+                        "url": None,
+                        "excerpt": f"生产地：{profile.city}；仅使用已确认供货资料。",
+                        "retrieved_at": today.isoformat(),
+                    }
+                ],
+            }
+            for k, title, angle in [
+                ("supply", "本季供货与合作说明", "向采购商介绍规格、供货期和起订量"),
+                ("box", "这一箱水果怎么选", "向消费者讲清包装、规格与订购须知"),
+                ("harvest", "果园采收日记", "用已确认的采收事实分享果园日常"),
+            ]
+        ]
     result = []
     for month, day, name, angle in CALENDAR:
         when = date(today.year, month, day)
@@ -109,7 +150,10 @@ def topics(profile, today: date):
 
 async def write_draft(provider, data: dict, model: str):
     messages = [
-        {"role": "system", "content": PROMPT},
+        {
+            "role": "system",
+            "content": ORCHARD_PROMPT if data.get("template_key") == "orchard" else PROMPT,
+        },
         {
             "role": "user",
             "content": "请根据以下素材写一份草稿，缺少的关键信息留具体待填项，供店主补齐后发布：\n"

@@ -28,6 +28,7 @@ export const contentApi = {
       platform: string
       confirmed_facts: string
       voice: string
+      audience?: 'buyers' | 'consumers'
     },
   ) => api.post<Draft>(`/api/profiles/${id}/content/drafts`, body),
 }

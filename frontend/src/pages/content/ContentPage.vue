@@ -27,6 +27,10 @@ const profiles = ref<Profile[]>([]),
   error = ref(''),
   active = ref<Draft>(),
   editor = ref('')
+const audience = ref<'buyers' | 'consumers'>('consumers')
+const orchard = computed(
+  () => profiles.value.find((p) => p.id === id.value)?.template_key === 'orchard',
+)
 const fieldValues = ref<Record<string, string>>({})
 const pending = computed(() => pendingFields(editor.value))
 let timer: ReturnType<typeof setTimeout> | undefined,
@@ -55,6 +59,11 @@ async function load() {
   selected.value = undefined
   active.value = undefined
   facts.value = ''
+  const params = profiles.value.find((p) => p.id === id.value)?.parameters
+  audience.value =
+    params && 'orchard' in params && params.orchard?.audience?.base === 'wholesale'
+      ? 'buyers'
+      : 'consumers'
   topics.value = []
   drafts.value = []
   if (!id.value) {
@@ -95,6 +104,7 @@ async function generate() {
       topic_id: selected.value.id,
       platform: platform.value,
       voice: voice.value,
+      audience: orchard.value ? audience.value : undefined,
       confirmed_facts: facts.value,
     })
     active.value = result
@@ -171,7 +181,7 @@ onBeforeUnmount(() => {
     >
     <div v-else-if="!loading" class="bc-card empty-content">
       <CompassMark :size="65" />
-      <h2>先认识你的店</h2>
+      <h2>先认识你的生意</h2>
       <p class="sub">建好商业档案，就能找到适合你的内容方向。</p>
       <router-link class="text-link" to="/profiles/new">新建档案 ↗</router-link>
     </div>
@@ -184,7 +194,7 @@ onBeforeUnmount(() => {
             <span class="eyebrow">01 / 选一个切入点</span>
             <h2>今天，聊点什么</h2>
           </div>
-          <span class="sub">日历 · 门店日常 · 已核实来源</span>
+          <span class="sub">{{ orchard ? '供货合作 · 水果选购 · 果园日常' : '日历 · 门店日常 · 已核实来源' }}</span>
         </header>
         <div class="topic-grid">
           <button
@@ -201,7 +211,7 @@ onBeforeUnmount(() => {
                   ? '营销日历'
                   : topic.kind === 'hot'
                     ? '热点来源'
-                    : '门店日常'
+                    : topic.kind === 'orchard' ? '果园经营' : '门店日常'
               }}</span
               ><span>{{ topic.date || '随时可写' }}</span>
             </header>
@@ -241,7 +251,11 @@ onBeforeUnmount(() => {
                   <input v-model="fieldValues[field]" class="bc-input" placeholder="填写真实情况" />
                 </label>
                 <div class="draft-field-actions">
-                  <button class="text-link" :disabled="!fieldValues[field]?.trim()" @click="fill(field)">
+                  <button
+                    class="text-link"
+                    :disabled="!fieldValues[field]?.trim()"
+                    @click="fill(field)"
+                  >
                     填入文案 ↗
                   </button>
                   <button class="text-link" @click="omit(field)">删去此行</button>
@@ -303,6 +317,12 @@ onBeforeUnmount(() => {
         </section>
       </div>
       <aside ref="writingPanel" class="writing-panel bc-card">
+        <label v-if="orchard" class="input-label"
+          >这篇写给谁<select v-model="audience" class="bc-input">
+            <option value="buyers">采购商 · 供货与合作</option>
+            <option value="consumers">消费者 · 水果与生活</option>
+          </select></label
+        >
         <span class="eyebrow">02 / 写给谁，怎么说</span>
         <h2>{{ selected ? selected.title : '先挑一个你想说的话题' }}</h2>
         <p class="sub">{{ selected?.angle ?? '左边的卡片是起点，你的真实经历才是主角。' }}</p>
@@ -331,10 +351,16 @@ onBeforeUnmount(() => {
             class="bc-input"
             rows="5"
             maxlength="2000"
-            placeholder="比如：今天到店买奶茶送哪吒周边；可补充真实菜单、价格、活动规则或制作细节。写得越具体，文案越像你的店。"
+            :placeholder="
+              orchard
+                ? '补充真实规格、采收日记、供货规则。档案中的对外供货资料会自动带入，内部成本收益不会用于文案。'
+                : '比如：今天到店买奶茶送哪吒周边；可补充真实菜单、价格、活动规则或制作细节。'
+            "
           />
         </label>
-        <p class="sub">想不到该补什么也没关系，AI 会把关键缺项留成待填提示。补齐或删去后再复制发布。</p>
+        <p class="sub">
+          想不到该补什么也没关系，AI 会把关键缺项留成待填提示。补齐或删去后再复制发布。
+        </p>
         <van-button
           type="primary"
           :disabled="!selected || !auth.isVerified"

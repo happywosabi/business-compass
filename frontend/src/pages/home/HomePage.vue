@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { profilesApi, type Profile, type View } from '@/api/profiles'
+import { profilesApi, type Profile, type View, type Template } from '@/api/profiles'
 import { errorMessage } from '@/api/client'
 import AppIcon from '@/components/AppIcon.vue'
 import CompassMark from '@/components/CompassMark.vue'
@@ -9,6 +9,9 @@ import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import { PROFILE_STAGES } from '@/utils/parameters'
 import { formatDate } from '@/utils/format'
 
+const templates = ref<Template[]>([])
+const totalFor = (p: Profile) =>
+  templates.value.find((t) => t.key === p.template_key)?.quick_required_keys?.length ?? 0
 const profiles = ref<Profile[]>([]),
   view = ref<View>('active'),
   loading = ref(true),
@@ -22,7 +25,11 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const items = await profilesApi.list(view.value)
+    const [items, metadata] = await Promise.all([
+      profilesApi.list(view.value),
+      profilesApi.templates(),
+    ])
+    templates.value = metadata
     if (ticket === sequence) profiles.value = items
   } catch (e) {
     if (ticket === sequence) error.value = errorMessage(e)
@@ -62,7 +69,7 @@ onMounted(load)
           <span class="live-dot" /> 一份档案，一家店，一步更有把握的决定
         </div>
       </div>
-      <CompassMark :size="145" dark motion="settle" />
+      <CompassMark :size="145" dark motion="settle" hover-sway />
     </section>
     <div class="section-bar">
       <div class="segmented" aria-label="档案分类">
@@ -109,12 +116,15 @@ onMounted(load)
           }}</span>
         </div>
         <h2>{{ profile.name }}</h2>
-        <p class="sub">{{ profile.city }} · 饮品 · {{ PROFILE_STAGES[profile.stage] }}</p>
+        <p class="sub">
+          {{ profile.city }} · {{ profile.template_key === 'orchard' ? '果园' : '饮品' }} ·
+          {{ PROFILE_STAGES[profile.stage] }}
+        </p>
         <div class="mini-route">
           <span
-            v-for="n in 7"
+            v-for="n in totalFor(profile)"
             :key="n"
-            :class="{ filled: n <= 7 - profile.quick_missing.length }"
+            :class="{ filled: n <= totalFor(profile) - profile.quick_missing.length }"
           />
         </div>
         <p class="progress-copy">

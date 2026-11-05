@@ -26,6 +26,7 @@ class Generate(StrictBody):
     topic_id: str = Field(max_length=80)
     platform: Literal["moments", "xiaohongshu"]
     confirmed_facts: str = Field(default="", max_length=2000)
+    audience: Literal["buyers", "consumers"] | None = None
     voice: Literal["warm", "simple", "playful"] = "warm"
 
 
@@ -46,7 +47,9 @@ def out(item):
 async def topics(profile_id: UUID, db: DB, user: CurrentUser):
     profile = await profiles.get_owned_profile(db, user.id, profile_id)
     today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
-    return service.topics(profile, today) + await recommendations(db)
+    return service.topics(profile, today) + (
+        await recommendations(db) if profile.template_key != "orchard" else []
+    )
 
 
 @router.get("/drafts")
@@ -80,7 +83,8 @@ async def generate(
 ):
     profile = await profiles.get_owned_profile(db, user.id, profile_id)
     choices = service.topics(profile, datetime.now(ZoneInfo("Asia/Shanghai")).date())
-    choices += await recommendations(db)
+    if profile.template_key != "orchard":
+        choices += await recommendations(db)
     topic = next((t for t in choices if t["id"] == body.topic_id), None)
     if topic is None:
         raise HTTPException(422, "这个选题已过期，请刷新后选择")
@@ -95,6 +99,20 @@ async def generate(
             "value_proposition": profile.value_proposition,
         },
     }
+    if profile.template_key == "orchard":
+        from app.templates.registry import parse_parameters
+
+        orchard = parse_parameters("orchard", profile.parameters).orchard
+        data["template_key"] = "orchard"
+        data["audience"] = body.audience or (
+            "buyers" if orchard.audience and orchard.audience.base == "wholesale" else "consumers"
+        )
+        data["store"] = {
+            "name": profile.name,
+            "city": profile.city,
+            "supply": orchard.supply.base.model_dump(exclude_none=True) if orchard.supply else {},
+            "varieties": [v.name for v in orchard.varieties.base] if orchard.varieties else [],
+        }
     run, created = await reserve(db, user, profile_id, body.request_id, "content", data, settings)
     if not created:
         item = await db.scalar(select(ContentDraft).where(ContentDraft.run_id == run.id))
@@ -108,6 +126,31 @@ async def generate(
         topic=topic["title"],
         angle=topic["angle"],
         sources=topic["sources"]
+        + (
+            [
+                {
+                    "title": "用户确认的果园供货资料",
+                    "url": None,
+                    "excerpt": "；".join(
+                        f"{label}：{data['store']['supply'][key]}"
+                        for key, label in {
+                            "specification": "规格",
+                            "pack_net_kg": "每箱净重kg",
+                            "supply_dates": "供货期",
+                            "available_quantity": "供货量",
+                            "minimum_order": "起订量",
+                            "shipping_areas": "发货地区",
+                            "verified_attributes": "已核实特点及依据",
+                        }.items()
+                        if key in data["store"]["supply"]
+                    )
+                    or "尚未填写对外供货资料",
+                    "retrieved_at": utcnow().date().isoformat(),
+                }
+            ]
+            if profile.template_key == "orchard"
+            else []
+        )
         + (
             [
                 {

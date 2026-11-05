@@ -1,0 +1,9 @@
+version: 1
+parameters:
+  - {key: orchard.period, label: 经营期间, stage: basic, quick_required: true, ask: 本次核算从哪天到哪天？请覆盖完整生产周期。}
+  - {key: orchard.audience, label: 主要客户, stage: product, quick_required: true, ask: 主要批发给采购商、零售给消费者，还是两者都有？}
+  - {key: orchard.varieties, label: 品种与产销成本, stage: shop, quick_required: true, ask: 有哪些在产水果？先说一个品种、预计采收量和采后损耗，再逐项确认等级、售出率、渠道价格及直接成本。}
+  - {key: orchard.shared_costs, label: 全园共用成本, stage: costs, quick_required: true, ask: 经营期土地租金、维护和其他共用支出各多少？没有也请明确填零。}
+  - {key: orchard.unpaid_labor, label: 未付酬家庭劳动估值, unit: 元/期, stage: costs, quick_required: true, three_tier: true, ask: 未领工资的自己或家人劳动，本期合计估值多少？已支付人工不要重复计入。}
+  - {key: orchard.equipment, label: 设备购置, unit: 元/期, stage: none, three_tier: true}
+  - {key: orchard.supply, label: 对外供货资料, stage: none, ask: 可补充包装净重、供货期、供货量、起订量、发货地区及已核实的产品特点。}

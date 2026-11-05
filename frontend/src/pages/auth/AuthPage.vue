@@ -92,7 +92,7 @@ async function onSubmit() {
 <template>
   <div class="auth">
     <section class="hero" aria-label="商业罗盘介绍">
-      <CompassMark class="hero-compass" :size="150" dark motion="settle" />
+      <CompassMark class="hero-compass" :size="150" dark motion="settle" hover-sway />
       <h1><span class="nowrap">开店之前，</span><span class="nowrap">先把账算清楚</span></h1>
       <p class="lede">说说你想开什么店。商业罗盘帮你算出要准备多少钱、第几个月收回投入，还有最怕什么。</p>
       <ol class="steps">

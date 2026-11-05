@@ -29,6 +29,24 @@ DISCLAIMER = "测算结果基于用户提供的估计和行业默认值，不构
 
 def facts(snapshot):
     base = snapshot.results["scenarios"]["base"]
+    if snapshot.template_key == "orchard":
+        return {
+            "元": [
+                base[k]
+                for k in (
+                    "revenue",
+                    "operating_expense",
+                    "operating_surplus",
+                    "labor_adjusted_earnings",
+                    "unpaid_labor",
+                    "equipment_purchases",
+                    "shared_cost",
+                )
+                if base[k] is not None
+            ],
+            "kg": [base["sold_kg"]],
+            "元/kg": [base["break_even_price"]] if base["break_even_price"] is not None else [],
+        }
     # 限定有语义单位的允许数字，避免把百分比误当金额，或用模型自己凑出的数字。
     result = {"元": [], "月": [], "单": [], "%": []}
     for key in [
@@ -64,7 +82,7 @@ def verify_numbers(text: str, allowed: dict) -> bool:
     ):
         return False
     # 要求阿拉伯数字紧随明确单位。顺序编号和自造数字同样不放行。
-    pattern = re.compile(r"([−-]?\d[\d,]*(?:\.\d+)?)\s*(万?元|万|个月|月|杯|单|%|％)")
+    pattern = re.compile(r"([−-]?\d[\d,]*(?:\.\d+)?)\s*(元/kg|kg|万?元|万|个月|月|杯|单|%|％)")
     spans = []
     for match in pattern.finditer(text):
         raw, unit = match.groups()
@@ -90,6 +108,18 @@ def verify_numbers(text: str, allowed: dict) -> bool:
 def report_material(snapshot):
     """模型只接收有含义的可引用结果，避免把无标签数字或其他场景混在一起。"""
     base = snapshot.results["scenarios"]["base"]
+    if snapshot.template_key == "orchard":
+        return {
+            "本期收入": f"{base['revenue']:g}元",
+            "经营支出": f"{base['operating_expense']:g}元",
+            "经营结余": f"{base['operating_surplus']:g}元",
+            "扣家庭劳动估值后收益": f"{base['labor_adjusted_earnings']:g}元",
+            "保本均价": f"{base['break_even_price']:g}元/kg"
+            if base["break_even_price"] is not None
+            else "无有限值",
+            "边界": snapshot.results["assumptions"],
+            "是否已提供不确定范围": bool(snapshot.results["sensitivity"]),
+        }
     material = {
         "稳定期月营业额": f"{base['steady_monthly_revenue']:g}元",
         "稳定期每月固定成本": f"{base['steady_fixed_cost']:g}元",
@@ -122,6 +152,11 @@ async def generate(app, run_id, snapshot):
                     "不要数字编号，不引用年份和引擎版本。结论只能是需要进一步核实，不能说可以投入、建议开店、低于某数就不要开等投资指令。没有三档范围时说明需补范围。稳定期亏钱时不得给出有限资金建议。不保证赚钱。\n可引用结果（键是含义，值是带单位的计算结果）："
                     + json.dumps(report_material(snapshot), ensure_ascii=False)
                 )
+                if snapshot.template_key == "orchard":
+                    prompt = (
+                        "你是商业罗盘，用大白话简短解读在产果园经营期总账。只引用材料数字，不自行计算；数字紧跟元或元/kg单位，不写数字编号。必须说明全部销售款收齐假设，不声称现金流、建园回本或投资建议。区分经营结余与扣未付酬家庭劳动估值后收益，说明核实产量、售价、损耗及销路的方法；没有范围请提醒补充，不编农业基准。材料："
+                        + json.dumps(report_material(snapshot), ensure_ascii=False)
+                    )
                 content, accepted, total_in, total_out = "", False, 0, 0
                 for attempt in range(2):
                     await check_cancel(factory, run_id)
@@ -149,7 +184,17 @@ async def generate(app, run_id, snapshot):
                     select(EvaluationReport).where(EvaluationReport.evaluation_id == snapshot.id)
                 )
                 report.status = "succeeded" if accepted else "failed"
-                report.content = content + "\n\n" + DISCLAIMER if accepted else None
+                report.content = (
+                    content
+                    + "\n\n"
+                    + (
+                        "测算基于用户提供的估计，假定销售款全部收齐，不构成投资建议。"
+                        if snapshot.template_key == "orchard"
+                        else DISCLAIMER
+                    )
+                    if accepted
+                    else None
+                )
                 await db.commit()
                 await update_run(
                     factory,

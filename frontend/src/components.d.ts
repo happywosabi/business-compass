@@ -17,6 +17,8 @@ declare module 'vue' {
     CashChart: typeof import('./components/CashChart.vue')['default']
     CompassMark: typeof import('./components/CompassMark.vue')['default']
     MarkdownText: typeof import('./components/MarkdownText.vue')['default']
+    OrchardForm: typeof import('./components/OrchardForm.vue')['default']
+    OrchardNumber: typeof import('./components/OrchardNumber.vue')['default']
     PageHead: typeof import('./components/PageHead.vue')['default']
     ParamEditor: typeof import('./components/ParamEditor.vue')['default']
     ParamRow: typeof import('./components/ParamRow.vue')['default']

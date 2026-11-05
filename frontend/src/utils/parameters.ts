@@ -40,16 +40,45 @@ export function displayValue(value: unknown, unit?: string | null, key?: string)
         .join('；')
     if (key === 'revenue.channels')
       return value.map((item) => `${item.name} ${formatPercent(item.share)}`).join(' / ')
+    if (key === 'orchard.varieties') return value.map((v) => v.name).join(' / ')
     return value
       .map((v) => (typeof v === 'number' ? `${Math.round(v * 100)}%` : String(v)))
       .join(' · ')
+  }
+  if (typeof value === 'object') {
+    const item = value as Record<string, unknown>
+    if ('start' in item && 'end' in item) return `${item.start} — ${item.end}`
+    return (
+      Object.entries(item)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => {
+          const labels: Record<string, string> = {
+            land_rent: '租金',
+            maintenance: '维护',
+            other: '其他',
+            specification: '规格',
+            pack_net_kg: '净重kg',
+            supply_dates: '供货期',
+            available_quantity: '供货量',
+            minimum_order: '起订',
+            shipping_areas: '发货地区',
+            verified_attributes: '已核实特点',
+          }
+          return `${labels[k] ?? k}：${typeof v === 'object' && v && 'base' in v ? String(v.base) : String(v)}`
+        })
+        .join('；') || '待填写'
+    )
   }
   if (typeof value === 'number') {
     if (unit === '比例') return formatPercent(value)
     if (unit?.startsWith('元')) return formatMoney(value)
     return `${value.toLocaleString('zh-CN')}${unit === '单/天' ? ' 单/天' : unit ? ` ${unit}` : ''}`
   }
-  return LOCATIONS[String(value)] ?? String(value)
+  return (
+    { wholesale: '主要批发', retail: '主要零售', mixed: '批零并重' }[String(value)] ??
+    LOCATIONS[String(value)] ??
+    String(value)
+  )
 }
 
 export function displayParameter(

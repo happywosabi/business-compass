@@ -47,8 +47,14 @@ onMounted(load)
       <h2>{{ item.label || '一次新的可能性' }}</h2>
       <p>{{ item.summary }}</p>
       <div class="history-stats">
-        <span>准备 {{ fundingRange(item.results.scenarios.base.suggested_funding) }}</span
-        ><span>回本 {{ payback(item.results.scenarios.base.payback_month) }}</span
+        <template v-if="item.template_key === 'physical_store'"
+          ><span>准备 {{ fundingRange(item.results.scenarios.base.suggested_funding) }}</span
+          ><span>回本 {{ payback(item.results.scenarios.base.payback_month) }}</span></template
+        ><template v-else
+          ><span
+            >经营结余
+            {{ item.results.scenarios.base!.operating_surplus.toLocaleString('zh-CN') }} 元</span
+          ><span>经营期总账</span></template
         ><small>修订 {{ item.profile_revision }}</small>
       </div></router-link
     ><van-button v-if="more" :loading="busy" @click="load">{{

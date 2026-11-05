@@ -508,6 +508,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Amount */
+        Amount: {
+            /** Base */
+            base: number;
+            /** Pessimistic */
+            pessimistic?: number | null;
+            /** Optimistic */
+            optimistic?: number | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
         /** ApplyWhatIf */
         ApplyWhatIf: {
             /** Changes */
@@ -603,6 +620,13 @@ export interface components {
             /** Keys */
             keys: string[];
         };
+        /** DirectCosts */
+        DirectCosts: {
+            inputs?: components["schemas"]["Amount"] | null;
+            irrigation?: components["schemas"]["Amount"] | null;
+            paid_labor?: components["schemas"]["Amount"] | null;
+            other?: components["schemas"]["Amount"] | null;
+        };
         /** EvaluationCreate */
         EvaluationCreate: {
             /** Revision */
@@ -639,8 +663,10 @@ export interface components {
             template_version: number;
             /** Engine Version */
             engine_version: string;
-            parameters: components["schemas"]["PhysicalStoreParams"];
-            results: components["schemas"]["EvaluationResult"];
+            /** Parameters */
+            parameters: components["schemas"]["PhysicalStoreParams"] | components["schemas"]["OrchardParams"];
+            /** Results */
+            results: components["schemas"]["EvaluationResult"] | components["schemas"]["OrchardResult"];
             /** Summary */
             summary: string;
             /**
@@ -728,6 +754,24 @@ export interface components {
              */
             email: string;
         };
+        /** Grade */
+        Grade: {
+            /** Id */
+            id: string;
+            /**
+             * Name
+             * @default 统货
+             */
+            name: string;
+            /**
+             * Share
+             * @default 1
+             */
+            share: number;
+            sell_through?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            /** Channels */
+            channels?: components["schemas"]["OrchardChannel"][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -770,6 +814,104 @@ export interface components {
             cash_flow: number | null;
             /** Cash */
             cash: number;
+        };
+        /** OrchardChannel */
+        OrchardChannel: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "wholesale" | "retail";
+            /** Share */
+            share: number;
+            price?: components["schemas"]["Amount"] | null;
+            packaging_per_kg?: components["schemas"]["Amount"] | null;
+            logistics_per_kg?: components["schemas"]["Amount"] | null;
+            fee_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+        };
+        /** OrchardParams */
+        OrchardParams: {
+            /**
+             * Schema Version
+             * @default 2
+             * @constant
+             */
+            schema_version: 2;
+            orchard?: components["schemas"]["OrchardSection"];
+        };
+        /** OrchardResult */
+        OrchardResult: {
+            /**
+             * Kind
+             * @default orchard
+             * @constant
+             */
+            kind: "orchard";
+            /**
+             * Engine Version
+             * @default orchard-1
+             */
+            engine_version: string;
+            /** Scenarios */
+            scenarios: {
+                [key: string]: components["schemas"]["OrchardScenario"];
+            };
+            /** Sensitivity */
+            sensitivity: {
+                [key: string]: unknown;
+            }[];
+            /** Checks */
+            checks?: {
+                [key: string]: unknown;
+            }[];
+            /** Default Keys */
+            default_keys?: string[];
+            /** Assumptions */
+            assumptions?: string[];
+        };
+        /** OrchardScenario */
+        OrchardScenario: {
+            /** Revenue */
+            revenue: number;
+            /** Operating Expense */
+            operating_expense: number;
+            /** Operating Surplus */
+            operating_surplus: number;
+            /** Labor Adjusted Earnings */
+            labor_adjusted_earnings: number;
+            /** Unpaid Labor */
+            unpaid_labor: number;
+            /** Equipment Purchases */
+            equipment_purchases: number | null;
+            /** Sold Kg */
+            sold_kg: number;
+            /** Break Even Price */
+            break_even_price: number | null;
+            /** Break Even Note */
+            break_even_note: string;
+            /** Shared Cost */
+            shared_cost: number;
+            /** Varieties */
+            varieties: components["schemas"]["VarietyResult"][];
+        };
+        /** OrchardSection */
+        OrchardSection: {
+            period?: components["schemas"]["ParamValue_Period_"] | null;
+            audience?: components["schemas"]["ParamValue_Literal__wholesale____retail____mixed___"] | null;
+            varieties?: components["schemas"]["ParamValue_list_Variety__"] | null;
+            shared_costs?: components["schemas"]["ParamValue_SharedCosts_"] | null;
+            unpaid_labor?: components["schemas"]["Amount"] | null;
+            equipment?: components["schemas"]["Amount"] | null;
+            supply?: components["schemas"]["ParamValue_Supply_"] | null;
+        };
+        /** OrchardWhatIf */
+        OrchardWhatIf: {
+            baseline: components["schemas"]["OrchardResult"];
+            modified: components["schemas"]["OrchardResult"];
+            /** Surplus Delta */
+            surplus_delta: number;
         };
         /** ParamValue[Annotated[float, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0), Le(le=1)])]] */
         ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____: {
@@ -944,6 +1086,68 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** ParamValue[Literal['wholesale', 'retail', 'mixed']] */
+        ParamValue_Literal__wholesale____retail____mixed___: {
+            /**
+             * Base
+             * @enum {string}
+             */
+            base: "wholesale" | "retail" | "mixed";
+            /** Pessimistic */
+            pessimistic?: ("wholesale" | "retail" | "mixed") | null;
+            /** Optimistic */
+            optimistic?: ("wholesale" | "retail" | "mixed") | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Period] */
+        ParamValue_Period_: {
+            base: components["schemas"]["Period"];
+            pessimistic?: components["schemas"]["Period"] | null;
+            optimistic?: components["schemas"]["Period"] | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[SharedCosts] */
+        ParamValue_SharedCosts_: {
+            base: components["schemas"]["SharedCosts"];
+            pessimistic?: components["schemas"]["SharedCosts"] | null;
+            optimistic?: components["schemas"]["SharedCosts"] | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Supply] */
+        ParamValue_Supply_: {
+            base: components["schemas"]["Supply"];
+            pessimistic?: components["schemas"]["Supply"] | null;
+            optimistic?: components["schemas"]["Supply"] | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
         /** ParamValue[list[Annotated[float, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0), Le(le=2)])]]] */
         ParamValue_list_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_2______: {
             /** Base */
@@ -978,6 +1182,23 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** ParamValue[list[Variety]] */
+        ParamValue_list_Variety__: {
+            /** Base */
+            base: components["schemas"]["Variety"][];
+            /** Pessimistic */
+            pessimistic?: components["schemas"]["Variety"][] | null;
+            /** Optimistic */
+            optimistic?: components["schemas"]["Variety"][] | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
         /** ParametersUpdate */
         ParametersUpdate: {
             /** Revision */
@@ -997,6 +1218,19 @@ export interface components {
             base: number | null;
             /** Optimistic */
             optimistic: number | null;
+        };
+        /** Period */
+        Period: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
         };
         /**
          * PhysicalStoreParams
@@ -1040,9 +1274,9 @@ export interface components {
             /**
              * Template Key
              * @default physical_store
-             * @constant
+             * @enum {string}
              */
-            template_key: "physical_store";
+            template_key: "physical_store" | "orchard";
             /** City */
             city: string;
             /** District */
@@ -1055,7 +1289,8 @@ export interface components {
             stage: "idea" | "preparing" | "operating";
             /** Opened On */
             opened_on?: string | null;
-            parameters?: components["schemas"]["PhysicalStoreParams"];
+            /** Parameters */
+            parameters?: components["schemas"]["PhysicalStoreParams"] | components["schemas"]["OrchardParams"];
         };
         /** ProfileOut */
         ProfileOut: {
@@ -1092,7 +1327,8 @@ export interface components {
             value_proposition: {
                 [key: string]: unknown;
             };
-            parameters: components["schemas"]["PhysicalStoreParams"];
+            /** Parameters */
+            parameters: components["schemas"]["PhysicalStoreParams"] | components["schemas"]["OrchardParams"];
             /** Revision */
             revision: number;
             /**
@@ -1235,6 +1471,12 @@ export interface components {
             swing: number;
             payback_month: components["schemas"]["PaybackRange"];
         };
+        /** SharedCosts */
+        SharedCosts: {
+            land_rent?: components["schemas"]["Amount"] | null;
+            maintenance?: components["schemas"]["Amount"] | null;
+            other?: components["schemas"]["Amount"] | null;
+        };
         /**
          * StaffItem
          * @description 一类员工。
@@ -1283,6 +1525,23 @@ export interface components {
             delivery_capacity?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
             lease_months?: components["schemas"]["ParamValue_Annotated_int__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_1_____"] | null;
         };
+        /** Supply */
+        Supply: {
+            /** Specification */
+            specification?: string | null;
+            /** Pack Net Kg */
+            pack_net_kg?: number | null;
+            /** Supply Dates */
+            supply_dates?: string | null;
+            /** Available Quantity */
+            available_quantity?: string | null;
+            /** Minimum Order */
+            minimum_order?: string | null;
+            /** Shipping Areas */
+            shipping_areas?: string | null;
+            /** Verified Attributes */
+            verified_attributes?: string | null;
+        };
         /** TemplateOut */
         TemplateOut: {
             /** Key */
@@ -1304,6 +1563,12 @@ export interface components {
              * @default true
              */
             defaults_provisional: boolean;
+            /** Groups */
+            groups?: {
+                [key: string]: string;
+            };
+            /** Quick Required Keys */
+            quick_required_keys?: string[];
         };
         /**
          * Threshold
@@ -1373,6 +1638,45 @@ export interface components {
             payment_fee_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
             tax_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
         };
+        /** Variety */
+        Variety: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Area Mu */
+            area_mu?: number | null;
+            /** Harvest Start */
+            harvest_start?: string | null;
+            /** Harvest End */
+            harvest_end?: string | null;
+            harvest_kg?: components["schemas"]["Amount"] | null;
+            loss_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            /** Grades */
+            grades?: components["schemas"]["Grade"][];
+            costs?: components["schemas"]["DirectCosts"];
+        };
+        /** VarietyResult */
+        VarietyResult: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Harvest Kg */
+            harvest_kg: number;
+            /** Saleable Kg */
+            saleable_kg: number;
+            /** Sold Kg */
+            sold_kg: number;
+            /** Unsold Kg */
+            unsold_kg: number;
+            /** Revenue */
+            revenue: number;
+            /** Direct Cost */
+            direct_cost: number;
+            /** Contribution */
+            contribution: number;
+        };
         /** WhatIfRequest */
         WhatIfRequest: {
             /** Changes */
@@ -1413,6 +1717,8 @@ export interface components {
              * @default
              */
             confirmed_facts: string;
+            /** Audience */
+            audience?: ("buyers" | "consumers") | null;
             /**
              * Voice
              * @default warm
@@ -2228,7 +2534,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["WhatIfResult"];
+                    "application/json": components["schemas"]["WhatIfResult"] | components["schemas"]["OrchardWhatIf"];
                 };
             };
             /** @description Validation Error */

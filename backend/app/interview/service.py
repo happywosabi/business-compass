@@ -18,8 +18,10 @@ from app.llm.runs import RunCancelled, check_cancel, update_run
 from app.profiles import service as profiles
 
 from . import tools
+from .orchard import PROMPT as orchard_prompt
 
 logger = logging.getLogger(__name__)
+
 
 PROMPT_VERSION = "interview-2"
 PROMPT = Path(__file__).with_name("prompt.md").read_text()
@@ -127,11 +129,13 @@ async def drive(app, run_id: UUID):
                 )
                 db.add(user_message)
                 await db.commit()
-                specs = tools.template_prompt()
+                specs = tools.template_prompt(profile.template_key)
                 messages = [
                     {
                         "role": "system",
-                        "content": PROMPT + "\n参数定义：" + json.dumps(specs, ensure_ascii=False),
+                        "content": (orchard_prompt if profile.template_key == "orchard" else PROMPT)
+                        + "\n参数定义："
+                        + json.dumps(specs, ensure_ascii=False),
                     },
                     *previous,
                     {
@@ -177,7 +181,7 @@ async def drive(app, run_id: UUID):
                     else:
                         message, usage = await app.state.llm.complete(
                             messages,
-                            tools.definitions() if round_number < 5 else None,
+                            tools.definitions(profile.template_key) if round_number < 5 else None,
                             model=run.model,
                             on_delta=delta,
                         )

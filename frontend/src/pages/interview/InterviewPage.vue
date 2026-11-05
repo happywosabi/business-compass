@@ -45,7 +45,8 @@ const visible = computed(() =>
 const resultId = computed(
   () => [...history.value.runs].reverse().find((r) => r.output.evaluation_id)?.output.evaluation_id,
 )
-const progress = computed(() => 7 - (profile.value?.quick_missing.length ?? 7))
+const total = computed(() => template.value?.quick_required_keys?.length ?? 0)
+const progress = computed(() => total.value - (profile.value?.quick_missing.length ?? total.value))
 let controller: AbortController | undefined,
   poll: ReturnType<typeof setTimeout> | undefined,
   disposed = false
@@ -64,6 +65,10 @@ function scroll(force = false) {
     })
   })
 }
+function jumpToLatest() {
+  followLatest.value = true
+  scroll(true)
+}
 function trackScroll() {
   const log = chatLog.value
   if (log) followLatest.value = log.scrollHeight - log.scrollTop - log.clientHeight < 100
@@ -76,6 +81,10 @@ async function openResult(evaluationId: string) {
 }
 async function refreshProfile() {
   profile.value = await profilesApi.get(id)
+}
+async function restoreHistory() {
+  await loadHistory()
+  await refreshProfile()
 }
 async function loadHistory() {
   history.value = await interviewApi.history(id)
@@ -146,7 +155,8 @@ function consume({ event, data }: StreamEvent) {
     if (data.quick_replies) quick.value = data.quick_replies as string[]
   }
   if (event === 'error') error.value = String(data.message)
-  if (event === 'done' && typeof data.evaluation_id === 'string') void openResult(data.evaluation_id)
+  if (event === 'done' && typeof data.evaluation_id === 'string')
+    void openResult(data.evaluation_id)
   if (event === 'resume') {
     const run = data as unknown as Run
     runId.value = run.id
@@ -245,7 +255,15 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <div class="page interview-page">
-    <PageHead title="把开店的想法，一点点聊清楚" :back="`/profiles/${id}`" back-label="返回档案">
+    <PageHead
+      :title="
+        profile?.template_key === 'orchard'
+          ? '把果园的收成，一点点聊清楚'
+          : '把开店的想法，一点点聊清楚'
+      "
+      :back="`/profiles/${id}`"
+      back-label="返回档案"
+    >
       <template #actions>
         <router-link class="text-link" :to="`/profiles/${id}`">手动填写 ↗</router-link>
       </template>
@@ -254,10 +272,11 @@ onBeforeUnmount(() => {
     <div v-else-if="profile" class="interview-layout">
       <div class="chat-summary">
         <div>
-          <b>{{ profile.name }}</b><span>关键数字 {{ progress }} / 7</span>
+          <b>{{ profile.name }}</b
+          ><span>关键数字 {{ progress }} / {{ total }}</span>
         </div>
-        <button class="text-link" :disabled="progress !== 7 || pending" @click="evaluate">
-          {{ progress === 7 ? '查看测算 ↗' : '继续聊清楚' }}
+        <button class="text-link" :disabled="progress !== total || pending" @click="evaluate">
+          {{ progress === total ? '查看测算 ↗' : '继续聊清楚' }}
         </button>
       </div>
       <section class="chat-area bc-card">
@@ -285,14 +304,23 @@ onBeforeUnmount(() => {
             <CompassMark :size="85" motion="settle" /><span class="eyebrow"
               >每一个好生意，都始于一个问题</span
             >
-            <h2>你好，聊聊你的店吧。</h2>
+            <h2>
+              {{
+                profile?.template_key === 'orchard'
+                  ? '你好，聊聊你的果园吧。'
+                  : '你好，聊聊你的店吧。'
+              }}
+            </h2>
             <p>数字拿不准也没关系。我们从你已经知道的事情开始，一次聊一点。</p>
             <button
               class="welcome-prompt"
               :disabled="!auth.isVerified || pending"
               @click="send('我们开始吧，请先问我需要了解的问题')"
             >
-              开始聊我的开店想法 ↗
+              {{
+                profile?.template_key === 'orchard' ? '开始记这一季的果园账' : '开始聊我的开店想法'
+              }}
+              ↗
             </button>
           </div>
           <article
@@ -321,7 +349,7 @@ onBeforeUnmount(() => {
         <button
           v-if="!followLatest"
           class="latest-message text-link"
-          @click="followLatest = true; scroll(true)"
+          @click="jumpToLatest"
         >
           回到最新消息 ↓
         </button>
@@ -330,7 +358,7 @@ onBeforeUnmount(() => {
           }}<button
             v-if="!pending"
             class="text-link"
-            @click="loadHistory(); refreshProfile()"
+            @click="restoreHistory"
           >
             恢复对话
           </button>
@@ -377,26 +405,24 @@ onBeforeUnmount(() => {
         <section class="bc-card progress-card">
           <span class="eyebrow">YOUR COORDINATES / 同步记录</span>
           <h2>{{ profile.name }}</h2>
-          <p class="sub">{{ profile.city }} · 饮品店</p>
+          <p class="sub">{{ profile.city }} · {{ template?.label }}</p>
           <div class="chat-progress">
-            <span>快速测算准备度</span><b class="num">{{ progress }} / 7</b>
+            <span>快速测算准备度</span><b class="num">{{ progress }} / {{ total }}</b>
           </div>
-          <div class="progress-track"><i :style="{ width: `${(progress / 7) * 100}%` }" /></div>
+          <div class="progress-track"><i :style="{ width: `${(progress / total) * 100}%` }" /></div>
           <p class="sub">
             {{
-              progress === 7
+              progress === total
                 ? '关键数字齐了，可以先看第一版结果。'
-                : `再聊清楚 ${7 - progress} 个关键数字，就能先算一下。`
+                : `再聊清楚 ${total - progress} 个关键数字，就能先算一下。`
             }}
           </p>
-          <van-button type="primary" :disabled="progress !== 7 || pending" @click="evaluate"
+          <van-button type="primary" :disabled="progress !== total || pending" @click="evaluate"
             >先算一下 ↗</van-button
           >
-          <router-link
-            v-if="resultId"
-            class="text-link"
-            :to="`/profiles/${id}/results/${resultId}`"
-          >打开刚才的测算结果 ↗</router-link>
+          <router-link v-if="resultId" class="text-link" :to="`/profiles/${id}/results/${resultId}`"
+            >打开刚才的测算结果 ↗</router-link
+          >
           <button
             class="text-link profile-toggle"
             :aria-expanded="cardOpen"
@@ -410,7 +436,9 @@ onBeforeUnmount(() => {
                 <span
                   >{{ field.label
                   }}<SourceTag :source="parameterAt(profile, field.key)!.source" /></span
-                ><b>{{ displayValue(parameterAt(profile, field.key)!.base) }}</b>
+                ><b>{{
+                  displayValue(parameterAt(profile, field.key)!.base, field.unit, field.key)
+                }}</b>
               </div></template
             >
           </div>

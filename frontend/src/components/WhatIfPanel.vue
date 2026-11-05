@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { showConfirmDialog } from 'vant'
-import { evaluationsApi, type Evaluation, type WhatIf } from '@/api/evaluations'
+import { evaluationsApi, type Evaluation, type StoreEvaluation, type WhatIf } from '@/api/evaluations'
 import type { Profile } from '@/api/profiles'
 import { errorMessage } from '@/api/client'
 import { money, payback } from '@/utils/finance'
-const props = defineProps<{ profile: Profile; snapshot: Evaluation }>()
+const props = defineProps<{ profile: Profile; snapshot: StoreEvaluation }>()
 const emit = defineEmits<{
   preview: [value: WhatIf | undefined]
   applied: [value: Evaluation]

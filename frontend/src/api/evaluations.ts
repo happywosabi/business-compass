@@ -2,7 +2,23 @@ import { api } from './client'
 import type { components } from './schema'
 
 type Schemas = components['schemas']
-export type Evaluation = Schemas['EvaluationOut']
+export type StoreEvaluation = Omit<
+  Schemas['EvaluationOut'],
+  'template_key' | 'parameters' | 'results'
+> & {
+  template_key: 'physical_store'
+  parameters: Schemas['PhysicalStoreParams']
+  results: Schemas['EvaluationResult']
+}
+export type OrchardEvaluation = Omit<
+  Schemas['EvaluationOut'],
+  'template_key' | 'parameters' | 'results'
+> & {
+  template_key: 'orchard'
+  parameters: Schemas['OrchardParams']
+  results: Schemas['OrchardResult']
+}
+export type Evaluation = StoreEvaluation | OrchardEvaluation
 export type ScenarioResult = Schemas['ScenarioResult']
 export type WhatIf = Schemas['WhatIfResult']
 export const evaluationsApi = {

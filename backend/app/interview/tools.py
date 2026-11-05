@@ -1,18 +1,23 @@
 """访谈工具只复用已有的档案与计算服务。工具协议是模型输入，不享有额外权限。"""
 
+import json
 from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import HTTPException
 from pydantic import Field
+from sqlalchemy import select
 
-from app.engine import PhysicalStoreParams, estimate_traffic, evaluate
+from app.db.models import Message
+from app.engine import estimate_traffic
 from app.evaluations import service as evaluations
 from app.profiles import service as profiles
 from app.profiles.schemas import ProfileUpdate, StrictBody
 from app.templates import load_template
+from app.templates.registry import calculate, parse_parameters
 
 from .amounts import daily_orders, guard_changes, monthly_amount
+from .orchard import Convert, convert, guard_orchard_changes, guard_orchard_update
 
 
 class UpdateParameters(StrictBody):
@@ -90,7 +95,18 @@ TOOLS = {
 }
 
 
-def definitions():
+def definitions(key="physical_store"):
+    available = dict(TOOLS)
+    if key == "orchard":
+        available = {
+            k: v
+            for k, v in available.items()
+            if k not in {"record_periodic_value", "estimate_traffic", "use_default"}
+        }
+        available["convert_orchard_unit"] = (
+            Convert,
+            "换算原始斤/吨/箱价格/亩产/日薪，缺净重、面积、天数或人数时须追问。结果需另调用update_parameters保存。",
+        )
     return [
         {
             "type": "function",
@@ -100,13 +116,13 @@ def definitions():
                 "parameters": schema.model_json_schema(),
             },
         }
-        for name, (schema, desc) in TOOLS.items()
+        for name, (schema, desc) in available.items()
     ]
 
 
-def template_prompt():
+def template_prompt(key="physical_store"):
     """展开每个值的实际约束，省去重复的 ParamValue 泛型定义，降低每轮输入量。"""
-    metadata = profiles.template_info()
+    metadata = profiles.template_info(key)
 
     def compact(schema):
         if "$ref" in schema:
@@ -151,7 +167,7 @@ def template_prompt():
 
 def state(profile):
     template = load_template(profile.template_key)
-    params = PhysicalStoreParams.model_validate(profile.parameters)
+    params = parse_parameters(profile.template_key, profile.parameters)
     order = {
         stage: i for i, stage in enumerate(["basic", "product", "shop", "costs", "traffic", "none"])
     }
@@ -164,9 +180,17 @@ def state(profile):
         "next_questions": [p.model_dump() for p in pending[:3]],
         "quick_missing": template.quick_missing(params),
         "can_evaluate": not template.quick_missing(params),
-        "evaluation_instruction": "关键项齐全，用户确认测算就直接调用 run_evaluation，其余计算缺项由服务补默认值；面积和座位不影响运行。"
+        "evaluation_instruction": (
+            "关键项齐全，用户确认后调用 run_evaluation；果园不补农业默认值。"
+            if profile.template_key == "orchard"
+            else "关键项齐全，用户确认测算就直接调用 run_evaluation，其余计算缺项由服务补默认值；面积和座位不影响运行。"
+        )
         if not template.quick_missing(params)
-        else "请先补 quick_missing 中的关键参数，面积和座位不是必填。",
+        else (
+            "请先补 quick_missing 中的关键参数，列表内未填的销售及成本也要逐项确认。"
+            if profile.template_key == "orchard"
+            else "请先补 quick_missing 中的关键参数，面积和座位不是必填。"
+        ),
         "defaultable_keys": [
             key
             for key in params.missing_keys()
@@ -180,6 +204,16 @@ def state(profile):
 async def execute(
     db, profile, name, arguments, revision, message_id: UUID, *, user_text="", previous_reply=""
 ):
+    if profile.template_key == "orchard" and name in {
+        "record_periodic_value",
+        "estimate_traffic",
+        "use_default",
+    }:
+        raise ValueError("此工具不适用果园模板")
+    if name == "convert_orchard_unit":
+        if profile.template_key != "orchard":
+            raise ValueError("仅适用果园")
+        return profile, {**state(profile), "conversion": convert(Convert.model_validate(arguments))}
     if name not in TOOLS:
         raise ValueError("未知工具")
     body = TOOLS[name][0].model_validate(arguments)
@@ -192,7 +226,10 @@ async def execute(
             key: None if isinstance(value, dict) and value.get("base", "missing") is None else value
             for key, value in body.changes.items()
         }
-        guard_changes(normalized, user_text, previous_reply)
+        if profile.template_key == "orchard":
+            guard_orchard_changes(normalized, user_text)
+        else:
+            guard_changes(normalized, user_text, previous_reply)
         changes = {}
         for key, value in normalized.items():
             if value is None:
@@ -205,6 +242,23 @@ async def execute(
             if value.get("source") == "ai_inferred" and not value.get("note"):
                 raise ValueError("AI 估算必须写明 note 依据")
             changes[key] = value
+        if profile.template_key == "orchard":
+            current_message = await db.get(Message, message_id)
+            conversions = []
+            if current_message:
+                rows = await db.scalars(
+                    select(Message).where(Message.run_id == current_message.run_id)
+                )
+                for row in rows:
+                    if row.payload.get("role") == "tool":
+                        try:
+                            conversion = json.loads(row.payload["content"]).get("conversion")
+                            if conversion:
+                                conversions.append(conversion)
+                        except (ValueError, TypeError):
+                            continue
+            before = parse_parameters(profile.template_key, profile.parameters)
+            guard_orchard_update(before, before.with_values(changes), user_text, conversions)
         profile = await profiles.edit_parameters(
             db,
             profile,
@@ -258,7 +312,7 @@ async def execute(
         result = estimate_traffic(
             body.method, body.inputs, template.traffic_defaults(profile.industry)
         )
-        params = PhysicalStoreParams.model_validate(profile.parameters)
+        params = parse_parameters(profile.template_key, profile.parameters)
         records = dict(params.traffic_estimates or {})
         records[body.method] = {"inputs": body.inputs, "result": result.model_dump()}
         params.traffic_estimates = records
@@ -288,9 +342,9 @@ async def execute(
         if any(len(s) > 10 for s in body.options):
             raise ValueError("快捷选项最多10字")
         extra["quick_replies"] = body.options
-    params = PhysicalStoreParams.model_validate(profile.parameters)
+    params = parse_parameters(profile.template_key, profile.parameters)
     if not params.missing_keys():
         extra["checks"] = [
-            c.model_dump() for c in evaluate(params, template.check_rules(profile.industry)).checks
+            c.model_dump() for c in calculate(params, template.check_rules(profile.industry)).checks
         ]
     return profile, {**state(profile), **extra}

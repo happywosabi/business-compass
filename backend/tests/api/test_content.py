@@ -163,3 +163,15 @@ async def test_draft_does_not_accept_a_questionnaire_of_placeholders():
     provider = FakeLLM([{"role": "assistant", "content": many}] * 2)
     with pytest.raises(ValueError, match="过多待填项"):
         await write_draft(provider, {}, "fake")
+
+
+def test_orchard_unknown_claims_can_be_specific_placeholders():
+    from app.content.service import unsupported_details
+
+    data = {
+        "template_key": "orchard",
+        "confirmed_facts": "",
+        "store": {"supply": {"supply_dates": "11月1日至20日"}},
+    }
+    assert unsupported_details("进入采收期，统货大小不一，包邮次日达，有机蜜柚", data)
+    assert unsupported_details("【待填：采收日期、包装规格与发货规则】", data) == []

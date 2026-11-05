@@ -6,9 +6,17 @@ from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from app.engine import PhysicalStoreParams
+from app.engine.orchard import OrchardParams
 from app.templates.loader import ParamSpec
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
@@ -24,12 +32,29 @@ class StrictBody(BaseModel):
 class ProfileCreate(StrictBody):
     name: Name
     industry: str = Field(default="drinks", max_length=40)
-    template_key: Literal["physical_store"] = "physical_store"
+    template_key: Literal["physical_store", "orchard"] = "physical_store"
     city: City
     district: str | None = Field(default=None, max_length=60)
     stage: ProfileStage = "idea"
     opened_on: date | None = None
-    parameters: PhysicalStoreParams = Field(default_factory=PhysicalStoreParams)
+    parameters: PhysicalStoreParams | OrchardParams = Field(default_factory=PhysicalStoreParams)
+
+    @model_validator(mode="after")
+    def matching_template(self):
+        if self.template_key == "orchard":
+            if "parameters" not in self.model_fields_set:
+                self.parameters = OrchardParams()
+            if not isinstance(self.parameters, OrchardParams):
+                raise ValueError("果园模板需要果园参数")
+            if "industry" not in self.model_fields_set:
+                self.industry = "fruit_grower"
+            if "stage" not in self.model_fields_set:
+                self.stage = "operating"
+            if self.stage != "operating":
+                raise ValueError("首期仅支持已投产果园")
+        elif not isinstance(self.parameters, PhysicalStoreParams):
+            raise ValueError("小店模板需要小店参数")
+        return self
 
 
 class RevisionBody(StrictBody):
@@ -80,7 +105,7 @@ class ProfileOut(BaseModel):
     status: ProfileStatus
     opened_on: date | None
     value_proposition: dict[str, Any]
-    parameters: PhysicalStoreParams
+    parameters: PhysicalStoreParams | OrchardParams
     revision: int
     created_at: datetime
     updated_at: datetime
@@ -119,3 +144,5 @@ class TemplateOut(BaseModel):
     fields: list[FieldOut]
     definitions: dict[str, Any]
     defaults_provisional: bool = True
+    groups: dict[str, str] = Field(default_factory=dict)
+    quick_required_keys: list[str] = Field(default_factory=list)

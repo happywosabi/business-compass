@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.engine import EvaluationResult, PhysicalStoreParams
+from app.engine.orchard import OrchardParams, OrchardResult
 from app.profiles.schemas import RevisionBody, StrictBody
 
 
@@ -23,8 +24,8 @@ class EvaluationOut(BaseModel):
     template_key: str
     template_version: int
     engine_version: str
-    parameters: PhysicalStoreParams
-    results: EvaluationResult
+    parameters: PhysicalStoreParams | OrchardParams
+    results: EvaluationResult | OrchardResult
     summary: str
     created_at: datetime
 

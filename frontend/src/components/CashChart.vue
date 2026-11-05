@@ -10,7 +10,7 @@ import {
   MarkPointComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
-import type { Evaluation, ScenarioResult } from '@/api/evaluations'
+import type { StoreEvaluation, ScenarioResult } from '@/api/evaluations'
 import { money, monthLabel } from '@/utils/finance'
 use([
   LineChart,
@@ -21,7 +21,7 @@ use([
   MarkPointComponent,
   CanvasRenderer,
 ])
-const props = defineProps<{ results: Evaluation['results']; preview?: ScenarioResult }>()
+const props = defineProps<{ results: StoreEvaluation['results']; preview?: ScenarioResult }>()
 const host = ref<HTMLElement>()
 let chart: ECharts | undefined, observer: ResizeObserver | undefined
 const motion = window.matchMedia('(prefers-reduced-motion: reduce)')

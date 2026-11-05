@@ -31,7 +31,7 @@ router = APIRouter(prefix="/api", tags=["商业档案"])
 
 @router.get("/templates", response_model=list[TemplateOut])
 async def templates(user: CurrentUser):
-    return [service.template_info()]
+    return [service.template_info(key) for key in ("physical_store", "orchard")]
 
 
 @router.get("/profiles", response_model=list[ProfileOut])

@@ -8,13 +8,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Evaluation, Profile
-from app.engine import ENGINE_VERSION, PhysicalStoreParams, evaluate, what_if
+from app.engine import ENGINE_VERSION
+from app.engine.orchard import OrchardResult
 from app.profiles import service as profiles
 from app.templates import load_template
+from app.templates.registry import calculate, parse_parameters, preview
 
 
 def summary(result) -> str:
     base = result.scenarios["base"]
+    if isinstance(result, OrchardResult):
+        return f"本期经营结余 {base.operating_surplus:,.2f} 元，扣未付酬家庭劳动估值后 {base.labor_adjusted_earnings:,.2f} 元；假定销售款全部收齐。"
     if base.steady_monthly_cash <= 0:
         return "按目前的估计，生意稳定后仍在亏钱，建议先调整方案。"
     if base.payback_month is None:
@@ -59,7 +63,7 @@ async def create_evaluation(
     if current is None:
         raise HTTPException(409, "档案已更新，请刷新后再测算")
     template = load_template(current.template_key)
-    params = PhysicalStoreParams.model_validate(current.parameters)
+    params = parse_parameters(current.template_key, current.parameters)
     if label is None and trigger in {"user_request", "interview"}:
         latest = await db.scalar(
             select(Evaluation)
@@ -70,7 +74,8 @@ async def create_evaluation(
         if (
             latest is not None
             and latest.parameters == current.parameters
-            and latest.engine_version == ENGINE_VERSION
+            and latest.engine_version
+            == ("orchard-1" if current.template_key == "orchard" else ENGINE_VERSION)
             and latest.template_version == template.version
         ):
             return latest
@@ -93,7 +98,7 @@ async def create_evaluation(
         },
     )
     profiles.record_changes(db, profile, params, filled, source="default", reason="测算前补齐缺项")
-    result = evaluate(filled, template.check_rules(profile.industry))
+    result = calculate(filled, template.check_rules(profile.industry))
     item = Evaluation(
         profile_id=profile.id,
         profile_revision=profile.revision,
@@ -122,9 +127,9 @@ async def try_changes(
     if evaluation_id:
         params = (await get_snapshot(db, profile, evaluation_id)).parameters
     try:
-        baseline = PhysicalStoreParams.model_validate(params)
+        baseline = parse_parameters(profile.template_key, params)
         profiles.validate_ranges(baseline.with_values(changes))
-        return what_if(baseline, changes)
+        return preview(baseline, changes)
     except (KeyError, ValidationError, ValueError) as error:
         raise HTTPException(
             422, f"无法试算，请检查参数是否齐全和有效：{str(error)[:800]}"

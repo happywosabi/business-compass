@@ -14,6 +14,8 @@ import { evaluationsApi } from '@/api/evaluations'
 import { errorMessage } from '@/api/client'
 import PageHead from '@/components/PageHead.vue'
 import CompassMark from '@/components/CompassMark.vue'
+import OrchardForm from '@/components/OrchardForm.vue'
+import type { OrchardParams } from '@/api/orchard'
 import ParamRow from '@/components/ParamRow.vue'
 import ParamEditor from '@/components/ParamEditor.vue'
 import AnimatedNumber from '@/components/AnimatedNumber.vue'
@@ -36,7 +38,11 @@ const info = ref(false),
   infoCity = ref(''),
   infoStage = ref<'idea' | 'preparing' | 'operating'>('idea')
 const groups = computed(() =>
-  Object.entries(STAGES)
+  Object.entries(
+    template.value?.groups && Object.keys(template.value.groups).length
+      ? template.value.groups
+      : STAGES,
+  )
     .map(([key, label]) => ({
       key,
       label,
@@ -44,7 +50,18 @@ const groups = computed(() =>
     }))
     .filter((g) => g.fields.length),
 )
-const progress = computed(() => 7 - (profile.value?.quick_missing.length ?? 7))
+const total = computed(() => template.value?.quick_required_keys?.length ?? 0)
+const progress = computed(() => total.value - (profile.value?.quick_missing.length ?? total.value))
+async function saveOrchard(changes: Record<string, unknown>) {
+  await action(async () => {
+    profile.value = await profilesApi.parameters(
+      profile.value!.id,
+      profile.value!.revision,
+      changes,
+    )
+    showToast('果园档案已保存')
+  })
+}
 let flash: ReturnType<typeof setTimeout>
 async function load() {
   loading.value = true
@@ -179,15 +196,17 @@ onScopeDispose(() => clearTimeout(flash))
       <section class="profile-overview">
         <div class="overview-label">
           <span class="eyebrow">你的开店航线</span>
-          <p>{{ profile.city }} · 饮品 · {{ PROFILE_STAGES[profile.stage] }}</p>
+          <p>{{ profile.city }} · {{ template.label }} · {{ PROFILE_STAGES[profile.stage] }}</p>
           <button class="text-link" @click="editInfo">修改基本信息</button>
         </div>
         <div class="overview-progress">
           <div>
             <span>快速测算准备度</span
-            ><b><AnimatedNumber :value="progress" /> <small>/ 7</small></b>
+            ><b
+              ><AnimatedNumber :value="progress" /> <small>/ {{ total }}</small></b
+            >
           </div>
-          <div class="progress-track"><i :style="{ width: `${(progress / 7) * 100}%` }" /></div>
+          <div class="progress-track"><i :style="{ width: `${(progress / total) * 100}%` }" /></div>
           <p>
             {{
               profile.quick_missing.length
@@ -206,7 +225,13 @@ onScopeDispose(() => clearTimeout(flash))
             >城市<input v-model="infoCity" class="bc-input" required maxlength="60" /></label
           ><label class="input-label"
             >阶段<select v-model="infoStage" class="bc-input">
-              <option v-for="(label, key) in PROFILE_STAGES" :key="key" :value="key">
+              <option
+                v-for="(label, key) in profile.template_key === 'orchard'
+                  ? { operating: '经营中' }
+                  : PROFILE_STAGES"
+                :key="key"
+                :value="key"
+              >
                 {{ label }}
               </option>
             </select></label
@@ -214,7 +239,14 @@ onScopeDispose(() => clearTimeout(flash))
         </form></Transition
       >
       <div class="profile-workspace">
-        <div class="parameter-groups">
+        <OrchardForm
+          v-if="profile.template_key === 'orchard'"
+          :key="profile.revision"
+          :parameters="profile.parameters as OrchardParams"
+          :busy="busy"
+          @submit="saveOrchard"
+        />
+        <div v-else class="parameter-groups">
           <section
             v-for="(group, i) in groups"
             :id="`group-${group.key}`"
@@ -247,11 +279,13 @@ onScopeDispose(() => clearTimeout(flash))
         <aside class="profile-aside">
           <section class="bc-card next-step">
             <span class="eyebrow">下一步 / 看清可能性</span><CompassMark :size="80" />
-            <h2>{{ progress === 7 ? '数字齐了，看看结果' : '把关键数字先填好' }}</h2>
+            <h2>{{ progress === total ? '数字齐了，看看结果' : '把关键数字先填好' }}</h2>
             <p class="sub">
               {{
-                progress === 7
-                  ? '其余缺项会用默认值补齐，并明确告诉你哪些是假设。'
+                progress === total
+                  ? profile.template_key === 'orchard'
+                    ? '产销与成本已确认，可以核算本期结余。'
+                    : '其余缺项会用默认值补齐，并明确告诉你哪些是假设。'
                   : '不用一次填完。拿不准的先留着，问过房东、看过报价再回来。'
               }}
             </p>
@@ -264,7 +298,11 @@ onScopeDispose(() => clearTimeout(flash))
                 }}<span>↗</span></a
               >
             </div>
-            <van-button type="primary" :disabled="progress !== 7" :loading="busy" @click="evaluate"
+            <van-button
+              type="primary"
+              :disabled="progress !== total"
+              :loading="busy"
+              @click="evaluate"
               >先算一下 ↗</van-button
             ><router-link class="text-link" :to="`/profiles/${profile.id}/results`"
               >查看历史测算</router-link
@@ -313,7 +351,8 @@ onScopeDispose(() => clearTimeout(flash))
             <div>
               <b>{{ template.fields.find((f) => f.key === item.parameter_key)?.label }}</b>
               <p>
-                {{ displayValue(item.old_value?.base) }} → {{ displayValue(item.new_value?.base) }}
+                {{ displayValue(item.old_value?.base, undefined, item.parameter_key) }} →
+                {{ displayValue(item.new_value?.base, undefined, item.parameter_key) }}
               </p>
               <small class="sub"
                 >第 {{ item.profile_revision }} 次修改 · {{ item.reason ?? '手工修改' }}</small

@@ -1,0 +1,637 @@
+{
+  "date": "2026-11-05",
+  "scope": "一组完整三轮访谈与两种对象的内容样例；不代表统计准确率。虚构测试资料，不含账号凭据。",
+  "interview": [
+    {
+      "input": "这是已经投产的果园，核算2026年1月1日到12月31日。只有红心蜜柚一个品种，10亩，总采收5吨，不是亩产，损耗10%。主要做批发，但批发占70%、零售30%，不分等级统货，扣损耗后预计售出80%。批发每斤3元，零售每斤5元，两个渠道包装每公斤都是0元、物流每公斤都是0元，佣金都是0%。本期农资20000元、灌溉0元、已付采收人工0元、其他直接支出0元。全园本期土地租金10000元、维护0元、其他共用支出0元。本人和亲戚未领工资，合计劳动估值8000元。设备购置暂时不知道。不用算月现金流。请先记下所有已经确定的数据。",
+      "status": 200,
+      "revision": 2,
+      "quick_missing": [],
+      "parameters": {
+        "schema_version": 2,
+        "orchard": {
+          "period": {
+            "base": {
+              "start": "2026-01-01",
+              "end": "2026-12-31"
+            },
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "audience": {
+            "base": "wholesale",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "varieties": {
+            "base": [
+              {
+                "id": "v1",
+                "name": "红心蜜柚",
+                "area_mu": 10.0,
+                "harvest_start": null,
+                "harvest_end": null,
+                "harvest_kg": {
+                  "base": 5000.0,
+                  "pessimistic": null,
+                  "optimistic": null,
+                  "source": "user",
+                  "note": "用户说明总采收5吨，非亩产；已换算5000kg"
+                },
+                "loss_rate": {
+                  "base": 0.1,
+                  "pessimistic": null,
+                  "optimistic": null,
+                  "source": "user",
+                  "note": "采后损耗10%"
+                },
+                "grades": [
+                  {
+                    "id": "v1-g1",
+                    "name": "统货",
+                    "share": 1.0,
+                    "sell_through": {
+                      "base": 0.8,
+                      "pessimistic": null,
+                      "optimistic": null,
+                      "source": "user",
+                      "note": "扣损耗后可售量预计售出80%"
+                    },
+                    "channels": [
+                      {
+                        "id": "v1-g1-c1",
+                        "kind": "wholesale",
+                        "share": 0.7,
+                        "price": {
+                          "base": 6.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": "原话：批发每斤3元；换算6元/kg"
+                        },
+                        "packaging_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "logistics_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "fee_rate": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        }
+                      },
+                      {
+                        "id": "v1-g1-c2",
+                        "kind": "retail",
+                        "share": 0.3,
+                        "price": {
+                          "base": 10.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": "原话：零售每斤5元；换算10元/kg"
+                        },
+                        "packaging_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "logistics_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "fee_rate": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "costs": {
+                  "inputs": {
+                    "base": 20000.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": "本期农资20000元"
+                  },
+                  "irrigation": {
+                    "base": 0.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": null
+                  },
+                  "paid_labor": {
+                    "base": 0.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": "已付采收人工0元"
+                  },
+                  "other": {
+                    "base": 0.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": null
+                  }
+                }
+              }
+            ],
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "shared_costs": {
+            "base": {
+              "land_rent": {
+                "base": 10000.0,
+                "pessimistic": null,
+                "optimistic": null,
+                "source": "user",
+                "note": "全园本期土地租金10000元"
+              },
+              "maintenance": {
+                "base": 0.0,
+                "pessimistic": null,
+                "optimistic": null,
+                "source": "user",
+                "note": null
+              },
+              "other": {
+                "base": 0.0,
+                "pessimistic": null,
+                "optimistic": null,
+                "source": "user",
+                "note": null
+              }
+            },
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "unpaid_labor": {
+            "base": 8000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "equipment": null,
+          "supply": null
+        }
+      }
+    },
+    {
+      "input": "补充更正：总采收不是5吨，是10吨，其他数据都不变。",
+      "status": 200,
+      "revision": 3,
+      "quick_missing": [],
+      "parameters": {
+        "schema_version": 2,
+        "orchard": {
+          "period": {
+            "base": {
+              "start": "2026-01-01",
+              "end": "2026-12-31"
+            },
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "audience": {
+            "base": "wholesale",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "varieties": {
+            "base": [
+              {
+                "id": "v1",
+                "name": "红心蜜柚",
+                "area_mu": 10.0,
+                "harvest_start": null,
+                "harvest_end": null,
+                "harvest_kg": {
+                  "base": 10000.0,
+                  "pessimistic": null,
+                  "optimistic": null,
+                  "source": "user",
+                  "note": "更正：总采收10吨（原5吨作废），非亩产；换算10000kg"
+                },
+                "loss_rate": {
+                  "base": 0.1,
+                  "pessimistic": null,
+                  "optimistic": null,
+                  "source": "user",
+                  "note": "采后损耗10%"
+                },
+                "grades": [
+                  {
+                    "id": "v1-g1",
+                    "name": "统货",
+                    "share": 1.0,
+                    "sell_through": {
+                      "base": 0.8,
+                      "pessimistic": null,
+                      "optimistic": null,
+                      "source": "user",
+                      "note": "扣损耗后可售量预计售出80%"
+                    },
+                    "channels": [
+                      {
+                        "id": "v1-g1-c1",
+                        "kind": "wholesale",
+                        "share": 0.7,
+                        "price": {
+                          "base": 6.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": "原话：批发每斤3元；换算6元/kg"
+                        },
+                        "packaging_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "logistics_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "fee_rate": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        }
+                      },
+                      {
+                        "id": "v1-g1-c2",
+                        "kind": "retail",
+                        "share": 0.3,
+                        "price": {
+                          "base": 10.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": "原话：零售每斤5元；换算10元/kg"
+                        },
+                        "packaging_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "logistics_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "fee_rate": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "costs": {
+                  "inputs": {
+                    "base": 20000.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": "本期农资20000元"
+                  },
+                  "irrigation": {
+                    "base": 0.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": null
+                  },
+                  "paid_labor": {
+                    "base": 0.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": "已付采收人工0元"
+                  },
+                  "other": {
+                    "base": 0.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": null
+                  }
+                }
+              }
+            ],
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "shared_costs": {
+            "base": {
+              "land_rent": {
+                "base": 10000.0,
+                "pessimistic": null,
+                "optimistic": null,
+                "source": "user",
+                "note": "全园本期土地租金10000元"
+              },
+              "maintenance": {
+                "base": 0.0,
+                "pessimistic": null,
+                "optimistic": null,
+                "source": "user",
+                "note": null
+              },
+              "other": {
+                "base": 0.0,
+                "pessimistic": null,
+                "optimistic": null,
+                "source": "user",
+                "note": null
+              }
+            },
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "unpaid_labor": {
+            "base": 8000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "equipment": null,
+          "supply": null
+        }
+      }
+    },
+    {
+      "input": "跑一版吧",
+      "status": 200,
+      "revision": 4,
+      "quick_missing": [],
+      "parameters": {
+        "schema_version": 2,
+        "orchard": {
+          "period": {
+            "base": {
+              "start": "2026-01-01",
+              "end": "2026-12-31"
+            },
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "audience": {
+            "base": "wholesale",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "varieties": {
+            "base": [
+              {
+                "id": "v1",
+                "name": "红心蜜柚",
+                "area_mu": 10.0,
+                "harvest_start": null,
+                "harvest_end": null,
+                "harvest_kg": {
+                  "base": 10000.0,
+                  "pessimistic": null,
+                  "optimistic": null,
+                  "source": "user",
+                  "note": "更正：总采收10吨（原5吨作废），非亩产；换算10000kg"
+                },
+                "loss_rate": {
+                  "base": 0.1,
+                  "pessimistic": null,
+                  "optimistic": null,
+                  "source": "user",
+                  "note": "采后损耗10%"
+                },
+                "grades": [
+                  {
+                    "id": "v1-g1",
+                    "name": "统货",
+                    "share": 1.0,
+                    "sell_through": {
+                      "base": 0.8,
+                      "pessimistic": null,
+                      "optimistic": null,
+                      "source": "user",
+                      "note": "扣损耗后可售量预计售出80%"
+                    },
+                    "channels": [
+                      {
+                        "id": "v1-g1-c1",
+                        "kind": "wholesale",
+                        "share": 0.7,
+                        "price": {
+                          "base": 6.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": "原话：批发每斤3元；换算6元/kg"
+                        },
+                        "packaging_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "logistics_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "fee_rate": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        }
+                      },
+                      {
+                        "id": "v1-g1-c2",
+                        "kind": "retail",
+                        "share": 0.3,
+                        "price": {
+                          "base": 10.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": "原话：零售每斤5元；换算10元/kg"
+                        },
+                        "packaging_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "logistics_per_kg": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        },
+                        "fee_rate": {
+                          "base": 0.0,
+                          "pessimistic": null,
+                          "optimistic": null,
+                          "source": "user",
+                          "note": null
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "costs": {
+                  "inputs": {
+                    "base": 20000.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": "本期农资20000元"
+                  },
+                  "irrigation": {
+                    "base": 0.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": null
+                  },
+                  "paid_labor": {
+                    "base": 0.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": "已付采收人工0元"
+                  },
+                  "other": {
+                    "base": 0.0,
+                    "pessimistic": null,
+                    "optimistic": null,
+                    "source": "user",
+                    "note": null
+                  }
+                }
+              }
+            ],
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "shared_costs": {
+            "base": {
+              "land_rent": {
+                "base": 10000.0,
+                "pessimistic": null,
+                "optimistic": null,
+                "source": "user",
+                "note": "全园本期土地租金10000元"
+              },
+              "maintenance": {
+                "base": 0.0,
+                "pessimistic": null,
+                "optimistic": null,
+                "source": "user",
+                "note": null
+              },
+              "other": {
+                "base": 0.0,
+                "pessimistic": null,
+                "optimistic": null,
+                "source": "user",
+                "note": null
+              }
+            },
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "unpaid_labor": {
+            "base": 8000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "equipment": null,
+          "supply": null
+        }
+      }
+    }
+  ],
+  "content": [
+    {
+      "audience": "buyers",
+      "content": "梅州红心蜜柚本季供货说明｜11月1日—20日可发\n\n山间蜜柚果园在梅州，这一季对外供货的是红心蜜柚，先把能确认的信息写清楚，方便采购商直接对照。\n\n供货品种：红心蜜柚\n规格：统货，纸箱净重5kg\n供货期：11月1日至11月20日\n起订量：20箱\n发货范围：广东省内\n生产地：梅州\n\n合作方式：【待填：具体合作方式，如结算方式、提货/发货安排等】\n统货规格细节：【待填：如需说明果径、成熟度等统货标准，请补充】\n\n以上为当前已确认的对外供货信息，有意向的采购商可按供货期和起订量来沟通，具体合作细节请补齐后再确认。\n\n#红心蜜柚 #梅州蜜柚 #水果供货 #产地直供 #采购信息 #当季水果 #果园供货"
+    },
+    {
+      "audience": "consumers",
+      "content": "这箱红心蜜柚怎么选，先看这几个信息🍊\n\n山间蜜柚果园在梅州，这季供的是红心蜜柚统货，纸箱净重5kg。\n\n选箱前可以留意：\n✅ 规格是统货，纸箱净重5kg\n✅ 供货期11月1日至11月20日\n✅ 发货范围广东省内\n✅ 采购起订量20箱\n\n个人少量购买的条件，目前还没有零售信息，先【待填：零售购买条件】。\n\n想了解这箱柚子的采收情况，可以【待填：采收相关信息】。\n\n#红心蜜柚 #梅州蜜柚 #当季水果 #水果选购 #柚子季 #山间蜜柚果园"
+    }
+  ]
+}
