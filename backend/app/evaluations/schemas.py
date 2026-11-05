@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.engine import EvaluationResult, PhysicalStoreParams
+from app.engine.fruit_retail import FruitRetailParams, FruitRetailResult
 from app.engine.orchard import OrchardParams, OrchardResult
 from app.profiles.schemas import RevisionBody, StrictBody
 
@@ -24,8 +25,8 @@ class EvaluationOut(BaseModel):
     template_key: str
     template_version: int
     engine_version: str
-    parameters: PhysicalStoreParams | OrchardParams
-    results: EvaluationResult | OrchardResult
+    parameters: PhysicalStoreParams | OrchardParams | FruitRetailParams
+    results: EvaluationResult | OrchardResult | FruitRetailResult
     summary: str
     created_at: datetime
 
@@ -35,7 +36,7 @@ class EvaluationLabel(StrictBody):
 
 
 class WhatIfRequest(StrictBody):
-    changes: dict[str, Any] = Field(min_length=1, max_length=20)
+    changes: dict[str, Any] = Field(min_length=1, max_length=40)
     evaluation_id: UUID | None = None
     revision: int = Field(ge=1)
 

@@ -23,7 +23,8 @@ from .orchard import PROMPT as orchard_prompt
 logger = logging.getLogger(__name__)
 
 
-PROMPT_VERSION = "interview-2"
+PROMPT_VERSION = "interview-3"
+FRUIT_PROMPT = Path(__file__).with_name("fruit_prompt.md").read_text()
 PROMPT = Path(__file__).with_name("prompt.md").read_text()
 
 
@@ -129,11 +130,17 @@ async def drive(app, run_id: UUID):
                 )
                 db.add(user_message)
                 await db.commit()
-                specs = tools.template_prompt(profile.template_key)
+                specs = tools.template_prompt(profile.template_key, profile.industry)
                 messages = [
                     {
                         "role": "system",
-                        "content": (orchard_prompt if profile.template_key == "orchard" else PROMPT)
+                        "content": (
+                            FRUIT_PROMPT
+                            if profile.industry == "fruit_retail"
+                            else orchard_prompt
+                            if profile.template_key == "orchard"
+                            else PROMPT
+                        )
                         + "\n参数定义："
                         + json.dumps(specs, ensure_ascii=False),
                     },
@@ -181,7 +188,9 @@ async def drive(app, run_id: UUID):
                     else:
                         message, usage = await app.state.llm.complete(
                             messages,
-                            tools.definitions(profile.template_key) if round_number < 5 else None,
+                            tools.definitions(profile.template_key, profile.industry)
+                            if round_number < 5
+                            else None,
                             model=run.model,
                             on_delta=delta,
                         )

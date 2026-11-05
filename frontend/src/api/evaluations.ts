@@ -18,7 +18,21 @@ export type OrchardEvaluation = Omit<
   parameters: Schemas['OrchardParams']
   results: Schemas['OrchardResult']
 }
-export type Evaluation = StoreEvaluation | OrchardEvaluation
+export type FruitEvaluation = Omit<
+  Schemas['EvaluationOut'],
+  'template_key' | 'parameters' | 'results'
+> & {
+  template_key: 'physical_store'
+  parameters: Schemas['FruitRetailParams']
+  results: Schemas['FruitRetailResult']
+}
+export function isFruitEvaluation(e: Evaluation): e is FruitEvaluation {
+  return 'kind' in e.results && e.results.kind === 'fruit_retail'
+}
+export function isStoreEvaluation(e: Evaluation): e is StoreEvaluation {
+  return e.template_key === 'physical_store' && !isFruitEvaluation(e)
+}
+export type Evaluation = StoreEvaluation | OrchardEvaluation | FruitEvaluation
 export type ScenarioResult = Schemas['ScenarioResult']
 export type WhatIf = Schemas['WhatIfResult']
 export const evaluationsApi = {

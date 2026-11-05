@@ -22,7 +22,8 @@ CALENDAR = [
     (12, 31, "年末", "记录这一年门店值得记住的小事"),
 ]
 CALENDAR_SOURCE = None
-PROMPT_VERSION = "content-4"
+PROMPT_VERSION = "content-5"
+FRUIT_PROMPT = Path(__file__).with_name("fruit_prompt.md").read_text()
 ORCHARD_PROMPT = Path(__file__).with_name("orchard_prompt.md").read_text()
 PROMPT = Path(__file__).with_name("prompt.md").read_text()
 PLACEHOLDER = re.compile(r"【待填：[^【】\n]+】")
@@ -32,6 +33,10 @@ def unsupported_details(content: str, data: dict) -> list[str]:
     confirmed = data.get("confirmed_facts", "")
     if data.get("template_key") == "orchard":
         confirmed += "。" + json.dumps(data.get("store", {}).get("supply", {}), ensure_ascii=False)
+    if data.get("industry") == "fruit_retail":
+        confirmed += "。" + json.dumps(
+            data.get("store", {}).get("public_facts", {}), ensure_ascii=False
+        )
     facts = "。".join(
         clause
         for clause in re.split(r"[。；;，,\n]", confirmed)
@@ -54,7 +59,7 @@ def unsupported_details(content: str, data: dict) -> list[str]:
                 r"统货.{0,12}(?:大小|没法|不能)|大小不一",
                 r"第一时间补|按订单.{0,5}发货",
             ]
-            if data.get("template_key") == "orchard"
+            if data.get("template_key") == "orchard" or data.get("industry") == "fruit_retail"
             else []
         ),
         r"随机|盲盒",
@@ -81,6 +86,35 @@ def unsupported_details(content: str, data: dict) -> list[str]:
 
 
 def topics(profile, today: date):
+    if getattr(profile, "industry", None) == "fruit_retail":
+        return [
+            {
+                "id": f"fruit:{key}",
+                "title": title,
+                "angle": angle,
+                "date": None,
+                "kind": "fruit_retail",
+                "sources": [
+                    {
+                        "title": f"{profile.name} · 水果零售档案",
+                        "url": None,
+                        "excerpt": f"城市：{profile.city}；只使用已确认的公开商品与活动资料。",
+                        "retrieved_at": today.isoformat(),
+                    }
+                ],
+            }
+            for key, title, angle in [
+                (
+                    "shopping",
+                    "这袋水果，怎么选更合适",
+                    "围绕实际在售水果讲清选购需求、规格与价格单位",
+                ),
+                ("arrival", "今天的水果购物清单", "用店主确认的到货与商品信息做可收藏清单"),
+                ("activity", "附近买水果的实用指南", "讲清已确认价格、门店位置、活动与配送规则"),
+                ("daily", "水果小店的一天", "记录店主提供的真实日常，不虚构热销或顾客评价"),
+            ]
+        ]
+
     if getattr(profile, "template_key", "physical_store") == "orchard":
         return [
             {
@@ -156,7 +190,11 @@ async def write_draft(provider, data: dict, model: str):
     messages = [
         {
             "role": "system",
-            "content": ORCHARD_PROMPT if data.get("template_key") == "orchard" else PROMPT,
+            "content": FRUIT_PROMPT
+            if data.get("industry") == "fruit_retail"
+            else ORCHARD_PROMPT
+            if data.get("template_key") == "orchard"
+            else PROMPT,
         },
         {
             "role": "user",
@@ -188,6 +226,14 @@ async def write_draft(provider, data: dict, model: str):
         unsupported = unsupported_details(content, data)
         if re.search(r"(?m)^\s*(?:#{1,6}\s|(?:标题|正文)[：:])", content):
             unsupported.append("不要Markdown标题、标题/正文标签或额外的待填项说明标题")
+        if data.get("industry") == "fruit_retail" and (
+            "**" in content or re.search(r"(?m)^\s*(?:小红书|朋友圈|标题|正文).{0,5}[：:]", content)
+        ):
+            unsupported.append("只输出指定平台的一篇正文，不加粗，不加平台/标题/正文标签")
+        if data.get("industry") == "fruit_retail" and data.get("platform") == "xiaohongshu":
+            tags = re.findall(r"(?<!#)#[^\s#]+", content)
+            if not 4 <= len(tags) <= 8:
+                unsupported.append("小红书结尾需要4–8个相关纯文本#话题标签")
         if data.get("platform") == "moments" and "#" in content:
             unsupported.append("朋友圈不带话题标签")
         if len(PLACEHOLDER.findall(content)) > 3:

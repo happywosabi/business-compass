@@ -698,9 +698,9 @@ export interface components {
             /** Engine Version */
             engine_version: string;
             /** Parameters */
-            parameters: components["schemas"]["PhysicalStoreParams"] | components["schemas"]["OrchardParams"];
+            parameters: components["schemas"]["PhysicalStoreParams"] | components["schemas"]["OrchardParams"] | components["schemas"]["FruitRetailParams"];
             /** Results */
-            results: components["schemas"]["EvaluationResult"] | components["schemas"]["OrchardResult"];
+            results: components["schemas"]["EvaluationResult"] | components["schemas"]["OrchardResult"] | components["schemas"]["FruitRetailResult"];
             /** Summary */
             summary: string;
             /**
@@ -787,6 +787,148 @@ export interface components {
              * Format: email
              */
             email: string;
+        };
+        /** FruitMonth */
+        FruitMonth: {
+            /** T */
+            t: number;
+            /** Revenue */
+            revenue: number;
+            /** Cash Flow */
+            cash_flow: number;
+            /** Cash */
+            cash: number;
+        };
+        /** FruitRetailParams */
+        FruitRetailParams: {
+            /**
+             * Schema Version
+             * @default 3
+             * @constant
+             */
+            schema_version: 3;
+            /**
+             * Stage
+             * @default idea
+             * @enum {string}
+             */
+            stage: "idea" | "preparing" | "operating";
+            /** Forecast Start */
+            forecast_start?: string | null;
+            fruit?: components["schemas"]["FruitSection"];
+        };
+        /** FruitRetailResult */
+        FruitRetailResult: {
+            /**
+             * Kind
+             * @default fruit_retail
+             * @constant
+             */
+            kind: "fruit_retail";
+            /**
+             * Engine Version
+             * @default fruit-retail-1
+             */
+            engine_version: string;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "idea" | "preparing" | "operating";
+            /** Forecast Start */
+            forecast_start: string | null;
+            /** Scenarios */
+            scenarios: {
+                [key: string]: components["schemas"]["FruitScenario"];
+            };
+            /** Sensitivity */
+            sensitivity: {
+                [key: string]: unknown;
+            }[];
+            /** Checks */
+            checks?: unknown[];
+            /** Default Keys */
+            default_keys?: string[];
+            /** Assumptions */
+            assumptions?: string[];
+        };
+        /** FruitScenario */
+        FruitScenario: {
+            /** Monthly Revenue */
+            monthly_revenue: number;
+            /** Monthly Procurement */
+            monthly_procurement: number;
+            /** Procurement Ratio */
+            procurement_ratio: number;
+            /** Contribution Rate */
+            contribution_rate: number;
+            /** Fixed Cost */
+            fixed_cost: number;
+            /** Monthly Net */
+            monthly_net: number;
+            /** Monthly Net Excl Owner */
+            monthly_net_excl_owner: number;
+            /** Break Even Monthly */
+            break_even_monthly: number | null;
+            /** Break Even Daily */
+            break_even_daily: number | null;
+            /** Reference Stock */
+            reference_stock: number;
+            /** Stock Shortfall */
+            stock_shortfall: number;
+            /** Startup Investment */
+            startup_investment: number | null;
+            /** Funding Required */
+            funding_required: number;
+            /** Payback Month */
+            payback_month: number | null;
+            /** Payback Month Excl Owner */
+            payback_month_excl_owner: number | null;
+            /** Cash Shortfall */
+            cash_shortfall: number | null;
+            /** Runway Months */
+            runway_months: number | null;
+            /** Monthly */
+            monthly: components["schemas"]["FruitMonth"][];
+        };
+        /** FruitSection */
+        FruitSection: {
+            revenue_basis?: components["schemas"]["ParamValue_Literal__revenue____transactions___"] | null;
+            sales_amount?: components["schemas"]["Amount"] | null;
+            sales_period?: components["schemas"]["ParamValue_Literal__day____month___"] | null;
+            daily_transactions?: components["schemas"]["Amount"] | null;
+            avg_ticket?: components["schemas"]["Amount"] | null;
+            open_days?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Gt_gt_0___Le_le_31_____"] | null;
+            cost_basis?: components["schemas"]["ParamValue_Literal__margin_loss____inclusive___"] | null;
+            gross_margin?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            loss_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            procurement_ratio?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            packaging_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            channel_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            payment_tax_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            rent?: components["schemas"]["Amount"] | null;
+            staff_cost?: components["schemas"]["Amount"] | null;
+            owner_salary?: components["schemas"]["Amount"] | null;
+            utilities?: components["schemas"]["Amount"] | null;
+            delivery_fixed?: components["schemas"]["Amount"] | null;
+            other_fixed?: components["schemas"]["Amount"] | null;
+            renovation?: components["schemas"]["Amount"] | null;
+            equipment?: components["schemas"]["Amount"] | null;
+            deposit?: components["schemas"]["Amount"] | null;
+            stock?: components["schemas"]["Amount"] | null;
+            stocking_days?: components["schemas"]["Amount"] | null;
+            available_cash?: components["schemas"]["Amount"] | null;
+            area_sqm?: components["schemas"]["Amount"] | null;
+            location?: components["schemas"]["ParamValue_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MaxLen_max_length_300_____"] | null;
+            channels?: components["schemas"]["ParamValue_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MaxLen_max_length_500_____"] | null;
+            public_facts?: components["schemas"]["ParamValue_PublicFacts_"] | null;
+        };
+        /** FruitWhatIf */
+        FruitWhatIf: {
+            baseline: components["schemas"]["FruitRetailResult"];
+            modified: components["schemas"]["FruitRetailResult"];
+            /** Surplus Delta */
+            surplus_delta: number;
         };
         /** Grade */
         Grade: {
@@ -1100,6 +1242,60 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** ParamValue[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[MaxLen(max_length=300)])]] */
+        ParamValue_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MaxLen_max_length_300_____: {
+            /** Base */
+            base: string;
+            /** Pessimistic */
+            pessimistic?: string | null;
+            /** Optimistic */
+            optimistic?: string | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[MaxLen(max_length=500)])]] */
+        ParamValue_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MaxLen_max_length_500_____: {
+            /** Base */
+            base: string;
+            /** Pessimistic */
+            pessimistic?: string | null;
+            /** Optimistic */
+            optimistic?: string | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Literal['day', 'month']] */
+        ParamValue_Literal__day____month___: {
+            /**
+             * Base
+             * @enum {string}
+             */
+            base: "day" | "month";
+            /** Pessimistic */
+            pessimistic?: ("day" | "month") | null;
+            /** Optimistic */
+            optimistic?: ("day" | "month") | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
         /** ParamValue[Literal['mall', 'street', 'school', 'residential', 'office', 'other']] */
         ParamValue_Literal__mall____street____school____residential____office____other___: {
             /**
@@ -1111,6 +1307,46 @@ export interface components {
             pessimistic?: ("mall" | "street" | "school" | "residential" | "office" | "other") | null;
             /** Optimistic */
             optimistic?: ("mall" | "street" | "school" | "residential" | "office" | "other") | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Literal['margin_loss', 'inclusive']] */
+        ParamValue_Literal__margin_loss____inclusive___: {
+            /**
+             * Base
+             * @enum {string}
+             */
+            base: "margin_loss" | "inclusive";
+            /** Pessimistic */
+            pessimistic?: ("margin_loss" | "inclusive") | null;
+            /** Optimistic */
+            optimistic?: ("margin_loss" | "inclusive") | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Literal['revenue', 'transactions']] */
+        ParamValue_Literal__revenue____transactions___: {
+            /**
+             * Base
+             * @enum {string}
+             */
+            base: "revenue" | "transactions";
+            /** Pessimistic */
+            pessimistic?: ("revenue" | "transactions") | null;
+            /** Optimistic */
+            optimistic?: ("revenue" | "transactions") | null;
             /**
              * Source
              * @default user
@@ -1145,6 +1381,20 @@ export interface components {
             base: components["schemas"]["Period"];
             pessimistic?: components["schemas"]["Period"] | null;
             optimistic?: components["schemas"]["Period"] | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[PublicFacts] */
+        ParamValue_PublicFacts_: {
+            base: components["schemas"]["PublicFacts"];
+            pessimistic?: components["schemas"]["PublicFacts"] | null;
+            optimistic?: components["schemas"]["PublicFacts"] | null;
             /**
              * Source
              * @default user
@@ -1324,7 +1574,7 @@ export interface components {
             /** Opened On */
             opened_on?: string | null;
             /** Parameters */
-            parameters?: components["schemas"]["PhysicalStoreParams"] | components["schemas"]["OrchardParams"];
+            parameters?: components["schemas"]["PhysicalStoreParams"] | components["schemas"]["OrchardParams"] | components["schemas"]["FruitRetailParams"];
         };
         /** ProfileOut */
         ProfileOut: {
@@ -1362,7 +1612,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /** Parameters */
-            parameters: components["schemas"]["PhysicalStoreParams"] | components["schemas"]["OrchardParams"];
+            parameters: components["schemas"]["PhysicalStoreParams"] | components["schemas"]["OrchardParams"] | components["schemas"]["FruitRetailParams"];
             /** Revision */
             revision: number;
             /**
@@ -1381,6 +1631,8 @@ export interface components {
             quick_missing: string[];
             /** Derived Stale Keys */
             derived_stale_keys: string[];
+            /** Quick Required Keys */
+            quick_required_keys?: string[];
         };
         /** ProfileUpdate */
         ProfileUpdate: {
@@ -1402,6 +1654,19 @@ export interface components {
             value_proposition?: {
                 [key: string]: string;
             } | null;
+        };
+        /** PublicFacts */
+        PublicFacts: {
+            /** Products */
+            products?: string | null;
+            /** Retail Prices */
+            retail_prices?: string | null;
+            /** Confirmed Origin */
+            confirmed_origin?: string | null;
+            /** Delivery Rules */
+            delivery_rules?: string | null;
+            /** Promotions */
+            promotions?: string | null;
         };
         /** RegisterRequest */
         RegisterRequest: {
@@ -2059,7 +2324,9 @@ export interface operations {
     };
     templates_api_templates_get: {
         parameters: {
-            query?: never;
+            query?: {
+                industry?: "fruit_retail" | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2073,6 +2340,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TemplateOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2570,7 +2846,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["WhatIfResult"] | components["schemas"]["OrchardWhatIf"];
+                    "application/json": components["schemas"]["WhatIfResult"] | components["schemas"]["OrchardWhatIf"] | components["schemas"]["FruitWhatIf"];
                 };
             };
             /** @description Validation Error */

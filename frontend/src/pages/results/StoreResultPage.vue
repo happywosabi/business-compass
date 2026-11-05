@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { evaluationsApi, type Evaluation, type StoreEvaluation, type WhatIf } from '@/api/evaluations'
+import { evaluationsApi, isStoreEvaluation, type Evaluation, type StoreEvaluation, type WhatIf } from '@/api/evaluations'
 import { profilesApi, type Profile, type Template } from '@/api/profiles'
 import { errorMessage } from '@/api/client'
 import PageHead from '@/components/PageHead.vue'
@@ -60,7 +60,7 @@ async function load() {
       profilesApi.templates(),
     ])
     profile.value = p
-    if (e.template_key !== 'physical_store') throw new Error('档案类型不匹配')
+    if (!isStoreEvaluation(e)) throw new Error('档案类型不匹配')
     snapshot.value = e
     label.value = e.label ?? ''
     template.value = t.find((x) => x.key === e.template_key)
@@ -74,7 +74,7 @@ async function saveLabel() {
   saving.value = true
   try {
     const updated = await evaluationsApi.label(profile.value!.id, snapshot.value!.id, label.value)
-    if (updated.template_key === 'physical_store') snapshot.value = updated
+    if (isStoreEvaluation(updated)) snapshot.value = updated
     labelOpen.value = false
   } catch (e) {
     error.value = errorMessage(e)

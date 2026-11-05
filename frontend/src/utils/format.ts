@@ -47,7 +47,7 @@ export function atLeast(value: number): number {
 /** 按业态显示单量的单位：饮品用「杯」，零售用「笔」，其他用「单」 */
 export function unitFor(industry: string | null | undefined): string {
   if (industry === 'drinks') return '杯'
-  if (industry === 'retail') return '笔'
+  if (industry === 'retail' || industry === 'fruit_retail') return '笔'
   return '单'
 }
 

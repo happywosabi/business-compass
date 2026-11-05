@@ -16,7 +16,10 @@ export interface Parameter {
 }
 
 export const profilesApi = {
-  templates: () => api.get<Template[]>('/api/templates'),
+  templates: (industry?: string) =>
+    api.get<Template[]>(
+      industry === 'fruit_retail' ? '/api/templates?industry=fruit_retail' : '/api/templates',
+    ),
   list: (view: View = 'active') => api.get<Profile[]>(`/api/profiles?view=${view}`),
   get: (id: string) => api.get<Profile>(`/api/profiles/${id}`),
   create: (body: Schemas['ProfileCreate']) => api.post<Profile>('/api/profiles', body),

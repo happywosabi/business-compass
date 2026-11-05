@@ -130,3 +130,5 @@ deploy/scripts/verify-backup.sh /安全目录/business-compass.dump
 验证脚本只恢复到临时数据库并自动删除它，不修改在线库。备份包含用户数据，应限制读取权限并按保留策略存储。上线细节和当前限制见 [部署与验收](docs/部署与验收.md)。
 
 GitHub Actions 配置暂以 [CI模板](deploy/ci/checks.yml) 交付；当前凭据缺少 `workflow` 权限，取得权限后移至 `.github/workflows/checks.yml` 启用。
+
+- 水果零售店：实体小店内选择“水果店（零售）”，支持两种采购成本口径、损耗、库存占用、筹备/经营中预测和水果文案；见[测算模型](docs/水果零售店测算模型.md)。

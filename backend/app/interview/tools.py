@@ -1,6 +1,7 @@
 """访谈工具只复用已有的档案与计算服务。工具协议是模型输入，不享有额外权限。"""
 
 import json
+import re
 from typing import Any, Literal
 from uuid import UUID
 
@@ -56,7 +57,17 @@ class Empty(StrictBody):
 
 class PeriodicValue(StrictBody):
     key: Literal[
-        "fixed_cost.rent", "fixed_cost.owner_salary", "fixed_cost.staff", "revenue.daily_orders"
+        "fixed_cost.rent",
+        "fixed_cost.owner_salary",
+        "fixed_cost.staff",
+        "revenue.daily_orders",
+        "fruit.sales_amount",
+        "fruit.rent",
+        "fruit.staff_cost",
+        "fruit.owner_salary",
+        "fruit.utilities",
+        "fruit.delivery_fixed",
+        "fruit.other_fixed",
     ]
     amount: float = Field(
         ge=0,
@@ -95,8 +106,12 @@ TOOLS = {
 }
 
 
-def definitions(key="physical_store"):
+def definitions(key="physical_store", industry=None):
     available = dict(TOOLS)
+    if industry == "fruit_retail":
+        available = {
+            k: v for k, v in available.items() if k not in {"estimate_traffic", "use_default"}
+        }
     if key == "orchard":
         available = {
             k: v
@@ -120,9 +135,9 @@ def definitions(key="physical_store"):
     ]
 
 
-def template_prompt(key="physical_store"):
+def template_prompt(key="physical_store", industry=None):
     """展开每个值的实际约束，省去重复的 ParamValue 泛型定义，降低每轮输入量。"""
-    metadata = profiles.template_info(key)
+    metadata = profiles.template_info(key, industry)
 
     def compact(schema):
         if "$ref" in schema:
@@ -166,31 +181,38 @@ def template_prompt(key="physical_store"):
 
 
 def state(profile):
-    template = load_template(profile.template_key)
+    template = load_template(profile.template_key, profile.industry)
     params = parse_parameters(profile.template_key, profile.parameters)
     order = {
         stage: i for i, stage in enumerate(["basic", "product", "shop", "costs", "traffic", "none"])
     }
     pending = sorted(
-        [s for s in template.specs.values() if s.ask and params.get(s.key) is None],
+        [
+            s
+            for s in template.specs.values()
+            if s.ask
+            and params.get(s.key) is None
+            and (profile.industry != "fruit_retail" or s.key in params.missing_keys())
+        ],
         key=lambda s: order[s.stage],
+    )
+    instruction = (
+        "关键项齐全，用户确认后测算；缺项按当前口径逐项询问，水果店不提供行业默认值。"
+        if profile.industry == "fruit_retail"
+        else "关键项齐全，用户确认后测算；果园缺项须逐项确认，不补农业默认值。"
+        if profile.template_key == "orchard"
+        else "关键项齐全，用户确认测算就直接调用 run_evaluation，其余计算缺项由服务补默认值；面积和座位不影响运行。"
+        if not template.quick_missing(params)
+        else "请先补 quick_missing 中的关键参数，面积和座位不是必填。"
     )
     return {
         "profile": profiles.profile_out(profile).model_dump(mode="json"),
-        "next_questions": [p.model_dump() for p in pending[:3]],
+        "next_questions": [
+            p.model_dump() for p in pending[: 2 if profile.industry == "fruit_retail" else 3]
+        ],
         "quick_missing": template.quick_missing(params),
         "can_evaluate": not template.quick_missing(params),
-        "evaluation_instruction": (
-            "关键项齐全，用户确认后调用 run_evaluation；果园不补农业默认值。"
-            if profile.template_key == "orchard"
-            else "关键项齐全，用户确认测算就直接调用 run_evaluation，其余计算缺项由服务补默认值；面积和座位不影响运行。"
-        )
-        if not template.quick_missing(params)
-        else (
-            "请先补 quick_missing 中的关键参数，列表内未填的销售及成本也要逐项确认。"
-            if profile.template_key == "orchard"
-            else "请先补 quick_missing 中的关键参数，面积和座位不是必填。"
-        ),
+        "evaluation_instruction": instruction,
         "defaultable_keys": [
             key
             for key in params.missing_keys()
@@ -204,6 +226,8 @@ def state(profile):
 async def execute(
     db, profile, name, arguments, revision, message_id: UUID, *, user_text="", previous_reply=""
 ):
+    if profile.industry == "fruit_retail" and name in {"estimate_traffic", "use_default"}:
+        raise ValueError("水果店没有行业默认值或客流估算工具")
     if profile.template_key == "orchard" and name in {
         "record_periodic_value",
         "estimate_traffic",
@@ -219,7 +243,7 @@ async def execute(
     body = TOOLS[name][0].model_validate(arguments)
     if profile.revision != revision:
         raise HTTPException(409, "档案已在其他页面更新，请确认后继续")
-    template = load_template(profile.template_key)
+    template = load_template(profile.template_key, profile.industry)
     extra = {}
     if name == "update_parameters":
         normalized = {
@@ -228,6 +252,8 @@ async def execute(
         }
         if profile.template_key == "orchard":
             guard_orchard_changes(normalized, user_text)
+        elif profile.industry == "fruit_retail":
+            guard_fruit(normalized, user_text, previous_reply)
         else:
             guard_changes(normalized, user_text, previous_reply)
         changes = {}
@@ -270,6 +296,32 @@ async def execute(
             commit=False,
         )
     elif name == "record_periodic_value":
+        if body.key.startswith("fruit.") != (profile.industry == "fruit_retail"):
+            raise ValueError("周期工具参数与业态不匹配")
+        if body.key == "fruit.sales_amount":
+            guard_fruit({body.key: body.amount}, user_text, previous_reply, converting=True)
+            if body.period == "year":
+                raise ValueError("营业额仅支持日/月；年金额请先明确月口径")
+            profile = await profiles.edit_parameters(
+                db,
+                profile,
+                revision,
+                {
+                    "fruit.revenue_basis": {"base": "revenue"},
+                    "fruit.sales_amount": {
+                        "base": body.amount,
+                        "note": f"原始营业额{body.amount:g}元/{body.period}",
+                    },
+                    "fruit.sales_period": {"base": body.period},
+                    "fruit.daily_transactions": None,
+                    "fruit.avg_ticket": None,
+                },
+                source="ai_extraction",
+                reason=body.reason,
+                message_id=message_id,
+                commit=False,
+            )
+            return profile, state(profile)
         if body.key == "revenue.daily_orders":
             guard_changes({body.key: body.amount}, user_text, previous_reply, converting=True)
             value = daily_orders(body.amount, body.period, body.days_per_month)
@@ -282,6 +334,11 @@ async def execute(
             note += f"按用户确认每月{body.days_per_month:g}天换算。"
         if body.period == "year":
             note += "按每年12个月换算。"
+        if body.key == "fruit.staff_cost":
+            if body.staff_count is None:
+                raise ValueError("请确认实际付薪人数及每人金额，老板工资单列")
+            value *= body.staff_count
+            note += f"实际付薪{body.staff_count}人。"
         if body.key == "fixed_cost.staff":
             if body.staff_count is None:
                 raise ValueError(
@@ -348,3 +405,46 @@ async def execute(
             c.model_dump() for c in calculate(params, template.check_rules(profile.industry)).checks
         ]
     return profile, {**state(profile), **extra}
+
+
+def guard_fruit(changes, user_text, previous_reply="", *, converting=False):
+    revenue = {"fruit.sales_amount", "fruit.daily_transactions", "fruit.avg_ticket"}
+    selected = revenue & {k for k, v in changes.items() if v is not None}
+    explicit_revenue = bool(re.search(r"营业额|销售额|流水|客单|交易|笔", user_text))
+    if (
+        selected
+        and not explicit_revenue
+        and (
+            re.search(r"工资|月薪|日薪|每人|两个人|[两二2]个人", user_text)
+            or re.search(r"工资|月薪|日薪|每人", previous_reply)
+        )
+    ):
+        raise ValueError("这笔数字可能是人工工资；请承接上一问确认，不能当营业额或交易笔数")
+    if (
+        "fruit.daily_transactions" in selected
+        and re.search(r"元|营业额|销售额|流水", user_text)
+        and not re.search(r"交易|笔", user_text)
+    ):
+        raise ValueError("金额不是交易笔数，请按原始营业额及日/月周期保存")
+    if "fruit.avg_ticket" in selected and re.search(
+        r"元[/／每]?(?:斤|kg|公斤)|每斤|一斤", user_text
+    ):
+        raise ValueError("水果按重量售价不等于每笔客单价，请保存公开零售价并追问整笔消费")
+    if not converting and re.search(r"每天|每日|每月|日薪|月薪|/天|/月|每年|年租", user_text):
+        periodic = {
+            "fruit.sales_amount",
+            "fruit.rent",
+            "fruit.owner_salary",
+            "fruit.staff_cost",
+            "fruit.utilities",
+            "fruit.delivery_fixed",
+            "fruit.other_fixed",
+        }
+        if periodic & {k for k, v in changes.items() if v is not None}:
+            raise ValueError("带周期金额请调用record_periodic_value，传原始金额，不自行换算")
+    if (
+        changes.get("fruit.gross_margin") is not None
+        and re.search(r"加价|赚[三两二一四五六七八九十\d]成", user_text)
+        and not re.search(r"毛利率|售价.*分母", user_text)
+    ):
+        raise ValueError("加价率不等于毛利率；请先确认以售价还是进价为分母")

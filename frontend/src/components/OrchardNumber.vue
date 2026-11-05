@@ -7,6 +7,7 @@ const props = defineProps<{
   unit?: string
   rate?: boolean
   range?: boolean
+  unboundedRate?: boolean
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: Amount | null] }>()
 const expanded = ref(
@@ -38,7 +39,7 @@ function update(event: Event, tier: 'base' | 'pessimistic' | 'optimistic') {
         class="bc-input num"
         type="number"
         min="0"
-        :max="rate ? 100 : undefined"
+        :max="rate && !unboundedRate ? 100 : undefined"
         step="any"
         :aria-label="label"
         placeholder="未填写"
@@ -69,7 +70,7 @@ function update(event: Event, tier: 'base' | 'pessimistic' | 'optimistic') {
             class="bc-input num"
             type="number"
             min="0"
-            :max="rate ? 100 : undefined"
+            :max="rate && !unboundedRate ? 100 : undefined"
             step="any"
             :disabled="!modelValue"
             :aria-label="`${label}${text}`"

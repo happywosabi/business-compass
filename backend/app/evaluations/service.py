@@ -1,6 +1,8 @@
 """测算事务：锁定同一修订、补默认值并记录、计算和保存不可变快照。"""
 
+from datetime import datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -9,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Evaluation, Profile
 from app.engine import ENGINE_VERSION
+from app.engine.fruit_retail import FruitRetailParams, FruitRetailResult
 from app.engine.orchard import OrchardResult
 from app.profiles import service as profiles
 from app.templates import load_template
@@ -17,6 +20,8 @@ from app.templates.registry import calculate, parse_parameters, preview
 
 def summary(result) -> str:
     base = result.scenarios["base"]
+    if isinstance(result, FruitRetailResult):
+        return f"预计月结余 {base.monthly_net:,.2f} 元；未扣老板工资 {base.monthly_net_excl_owner:,.2f} 元。"
     if isinstance(result, OrchardResult):
         return f"本期经营结余 {base.operating_surplus:,.2f} 元，扣未付酬家庭劳动估值后 {base.labor_adjusted_earnings:,.2f} 元；假定销售款全部收齐。"
     if base.steady_monthly_cash <= 0:
@@ -62,8 +67,15 @@ async def create_evaluation(
     )
     if current is None:
         raise HTTPException(409, "档案已更新，请刷新后再测算")
-    template = load_template(current.template_key)
+    template = load_template(current.template_key, current.industry)
     params = parse_parameters(current.template_key, current.parameters)
+    if isinstance(params, FruitRetailParams):
+        params = params.model_copy(
+            update={
+                "stage": current.stage,
+                "forecast_start": datetime.now(ZoneInfo("Asia/Shanghai")).date(),
+            }
+        )
     if label is None and trigger in {"user_request", "interview"}:
         latest = await db.scalar(
             select(Evaluation)
@@ -73,9 +85,15 @@ async def create_evaluation(
         )
         if (
             latest is not None
-            and latest.parameters == current.parameters
+            and latest.parameters == params.model_dump(mode="json")
             and latest.engine_version
-            == ("orchard-1" if current.template_key == "orchard" else ENGINE_VERSION)
+            == (
+                "fruit-retail-1"
+                if current.industry == "fruit_retail"
+                else "orchard-1"
+                if current.template_key == "orchard"
+                else ENGINE_VERSION
+            )
             and latest.template_version == template.version
         ):
             return latest

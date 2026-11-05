@@ -7,6 +7,7 @@ from app.auth.dependencies import CurrentUser
 from app.db.models import Evaluation
 from app.deps import DB
 from app.engine import WhatIfResult
+from app.engine.fruit_retail import FruitWhatIf
 from app.engine.orchard import OrchardWhatIf
 from app.profiles import service as profiles
 from app.templates.registry import parameter_keys, parse_parameters
@@ -60,7 +61,7 @@ async def label(
     return item
 
 
-@router.post("/what-if", response_model=WhatIfResult | OrchardWhatIf)
+@router.post("/what-if", response_model=WhatIfResult | OrchardWhatIf | FruitWhatIf)
 async def preview(profile_id: UUID, body: WhatIfRequest, db: DB, user: CurrentUser):
     profile = await profiles.get_owned_profile(db, user.id, profile_id)
     return await service.try_changes(db, profile, body.changes, body.evaluation_id, body.revision)
@@ -70,6 +71,10 @@ async def preview(profile_id: UUID, body: WhatIfRequest, db: DB, user: CurrentUs
 async def apply(profile_id: UUID, body: ApplyWhatIf, db: DB, user: CurrentUser):
     profile = await profiles.get_owned_profile(db, user.id, profile_id)
     snapshot = await service.get_snapshot(db, profile, body.evaluation_id)
+    if profile.industry == "fruit_retail" and snapshot.parameters.get("stage") != profile.stage:
+        from fastapi import HTTPException
+
+        raise HTTPException(422, "档案阶段已改变，请基于当前阶段重新测算后试算")
     await service.try_changes(db, profile, body.changes, body.evaluation_id, body.revision)
     # 老报告上的试算以老报告完整参数为基准，确认应用时也保持同一基准。
     restored = parse_parameters(snapshot.template_key, snapshot.parameters).with_values(

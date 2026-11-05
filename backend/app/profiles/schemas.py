@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 from app.engine import PhysicalStoreParams
+from app.engine.fruit_retail import FruitRetailParams
 from app.engine.orchard import OrchardParams
 from app.templates.loader import ParamSpec
 
@@ -37,7 +38,9 @@ class ProfileCreate(StrictBody):
     district: str | None = Field(default=None, max_length=60)
     stage: ProfileStage = "idea"
     opened_on: date | None = None
-    parameters: PhysicalStoreParams | OrchardParams = Field(default_factory=PhysicalStoreParams)
+    parameters: PhysicalStoreParams | OrchardParams | FruitRetailParams = Field(
+        default_factory=PhysicalStoreParams
+    )
 
     @model_validator(mode="after")
     def matching_template(self):
@@ -52,6 +55,12 @@ class ProfileCreate(StrictBody):
                 self.stage = "operating"
             if self.stage != "operating":
                 raise ValueError("首期仅支持已投产果园")
+        elif self.industry == "fruit_retail":
+            if "parameters" not in self.model_fields_set:
+                self.parameters = FruitRetailParams(stage=self.stage)
+            if not isinstance(self.parameters, FruitRetailParams):
+                raise ValueError("水果零售需要水果店参数")
+            self.parameters = self.parameters.model_copy(update={"stage": self.stage})
         elif not isinstance(self.parameters, PhysicalStoreParams):
             raise ValueError("小店模板需要小店参数")
         return self
@@ -105,13 +114,14 @@ class ProfileOut(BaseModel):
     status: ProfileStatus
     opened_on: date | None
     value_proposition: dict[str, Any]
-    parameters: PhysicalStoreParams | OrchardParams
+    parameters: PhysicalStoreParams | OrchardParams | FruitRetailParams
     revision: int
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None
     quick_missing: list[str]
     derived_stale_keys: list[str]
+    quick_required_keys: list[str] = Field(default_factory=list)
 
 
 class ChangeOut(BaseModel):

@@ -1,0 +1,1046 @@
+{
+  "date": "2026-11-06",
+  "scope": "一组七轮水果店真实模型回归，包含日/月修改、日薪上下文、零售价单位和确认测算；虚构输入，不代表总体准确率。",
+  "interview": [
+    {
+      "user": "水果店已经营业，每月营业30天，日营业额3000元，房租每月4500元。请记录。",
+      "reply": "这些刚才都已经记下了：日营业额 3000 元/天、每月营业 30 天、房租 4500 元/月，没有重复记录。\n\n还请你确认采购成本口径，二选一：\n1）未损耗毛利率 + 损耗率；\n2）含损耗的综合采购成本率（销售额中采购成本占多少）。\n\n你选哪种？",
+      "parameters": {
+        "schema_version": 3,
+        "stage": "operating",
+        "forecast_start": null,
+        "fruit": {
+          "revenue_basis": {
+            "base": "revenue",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "sales_amount": {
+            "base": 3000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "原始营业额3000元/day"
+          },
+          "sales_period": {
+            "base": "day",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "daily_transactions": null,
+          "avg_ticket": null,
+          "open_days": {
+            "base": 30.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "cost_basis": null,
+          "gross_margin": null,
+          "loss_rate": null,
+          "procurement_ratio": null,
+          "packaging_rate": null,
+          "channel_rate": null,
+          "payment_tax_rate": null,
+          "rent": {
+            "base": 4500.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：4500元/月。"
+          },
+          "staff_cost": null,
+          "owner_salary": null,
+          "utilities": null,
+          "delivery_fixed": null,
+          "other_fixed": null,
+          "renovation": null,
+          "equipment": null,
+          "deposit": null,
+          "stock": null,
+          "stocking_days": null,
+          "available_cash": null,
+          "area_sqm": null,
+          "location": null,
+          "channels": null,
+          "public_facts": null
+        }
+      },
+      "missing": [
+        "fruit.cost_basis",
+        "fruit.packaging_rate",
+        "fruit.channel_rate",
+        "fruit.payment_tax_rate",
+        "fruit.staff_cost",
+        "fruit.owner_salary",
+        "fruit.utilities",
+        "fruit.delivery_fixed",
+        "fruit.other_fixed",
+        "fruit.stock",
+        "fruit.stocking_days",
+        "fruit.gross_margin",
+        "fruit.loss_rate"
+      ]
+    },
+    {
+      "user": "说下人工，我和亲戚两个人，每天300。",
+      "reply": "“每天300”需要先确认：是两个人合计每天300元，还是每人每天300元？每月按多少天付薪？\n\n另外，你和亲戚都是实际付薪的吗？亲戚不付薪请明确说一声。你自己的劳动报酬会单独记录，不计入员工工资。",
+      "parameters": {
+        "schema_version": 3,
+        "stage": "operating",
+        "forecast_start": null,
+        "fruit": {
+          "revenue_basis": {
+            "base": "revenue",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "sales_amount": {
+            "base": 3000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "原始营业额3000元/day"
+          },
+          "sales_period": {
+            "base": "day",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "daily_transactions": null,
+          "avg_ticket": null,
+          "open_days": {
+            "base": 30.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "cost_basis": null,
+          "gross_margin": null,
+          "loss_rate": null,
+          "procurement_ratio": null,
+          "packaging_rate": null,
+          "channel_rate": null,
+          "payment_tax_rate": null,
+          "rent": {
+            "base": 4500.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：4500元/月。"
+          },
+          "staff_cost": null,
+          "owner_salary": null,
+          "utilities": null,
+          "delivery_fixed": null,
+          "other_fixed": null,
+          "renovation": null,
+          "equipment": null,
+          "deposit": null,
+          "stock": null,
+          "stocking_days": null,
+          "available_cash": null,
+          "area_sqm": null,
+          "location": null,
+          "channels": null,
+          "public_facts": null
+        }
+      },
+      "missing": [
+        "fruit.cost_basis",
+        "fruit.packaging_rate",
+        "fruit.channel_rate",
+        "fruit.payment_tax_rate",
+        "fruit.staff_cost",
+        "fruit.owner_salary",
+        "fruit.utilities",
+        "fruit.delivery_fixed",
+        "fruit.other_fixed",
+        "fruit.stock",
+        "fruit.stocking_days",
+        "fruit.gross_margin",
+        "fruit.loss_rate"
+      ]
+    },
+    {
+      "user": "300是我亲戚每人每天工资，每月支付26天；我自己报酬每月5000，不另外请人。",
+      "reply": "记下了：\n- 亲戚店员：300 元/天 × 26 天/月，1 人，折合 7800 元/月\n- 你本人劳动报酬：5000 元/月（单列）\n\n接下来问采购成本口径（二选一）：\n1）未损耗毛利率 + 损耗率；\n2）含损耗的综合采购成本率。\n\n你选哪种？",
+      "parameters": {
+        "schema_version": 3,
+        "stage": "operating",
+        "forecast_start": null,
+        "fruit": {
+          "revenue_basis": {
+            "base": "revenue",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "sales_amount": {
+            "base": 3000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "原始营业额3000元/day"
+          },
+          "sales_period": {
+            "base": "day",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "daily_transactions": null,
+          "avg_ticket": null,
+          "open_days": {
+            "base": 30.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "cost_basis": null,
+          "gross_margin": null,
+          "loss_rate": null,
+          "procurement_ratio": null,
+          "packaging_rate": null,
+          "channel_rate": null,
+          "payment_tax_rate": null,
+          "rent": {
+            "base": 4500.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：4500元/月。"
+          },
+          "staff_cost": {
+            "base": 7800.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：300元/天。按用户确认每月26天换算。实际付薪1人。"
+          },
+          "owner_salary": {
+            "base": 5000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：5000元/月。"
+          },
+          "utilities": null,
+          "delivery_fixed": null,
+          "other_fixed": null,
+          "renovation": null,
+          "equipment": null,
+          "deposit": null,
+          "stock": null,
+          "stocking_days": null,
+          "available_cash": null,
+          "area_sqm": null,
+          "location": null,
+          "channels": null,
+          "public_facts": null
+        }
+      },
+      "missing": [
+        "fruit.cost_basis",
+        "fruit.packaging_rate",
+        "fruit.channel_rate",
+        "fruit.payment_tax_rate",
+        "fruit.utilities",
+        "fruit.delivery_fixed",
+        "fruit.other_fixed",
+        "fruit.stock",
+        "fruit.stocking_days",
+        "fruit.gross_margin",
+        "fruit.loss_rate"
+      ]
+    },
+    {
+      "user": "营业额改成每月90000元，房租改成每天150元，租金按每月30天支付。人工不变。",
+      "reply": "已更新：月营业额 90000 元/月（每月营业 30 天不变）、房租 150 元/天 × 30 天 = 4500 元/月、人工不变（亲戚 300 元/天×26 天=7800 元/月，你 5000 元/月）。\n\n采购成本口径请二选一：\n1）未损耗毛利率 + 损耗率；\n2）含损耗的综合采购成本率。",
+      "parameters": {
+        "schema_version": 3,
+        "stage": "operating",
+        "forecast_start": null,
+        "fruit": {
+          "revenue_basis": {
+            "base": "revenue",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "sales_amount": {
+            "base": 90000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "原始营业额90000元/month"
+          },
+          "sales_period": {
+            "base": "month",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "daily_transactions": null,
+          "avg_ticket": null,
+          "open_days": {
+            "base": 30.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "cost_basis": null,
+          "gross_margin": null,
+          "loss_rate": null,
+          "procurement_ratio": null,
+          "packaging_rate": null,
+          "channel_rate": null,
+          "payment_tax_rate": null,
+          "rent": {
+            "base": 4500.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：150元/天。按用户确认每月30天换算。"
+          },
+          "staff_cost": {
+            "base": 7800.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：300元/天。按用户确认每月26天换算。实际付薪1人。"
+          },
+          "owner_salary": {
+            "base": 5000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：5000元/月。"
+          },
+          "utilities": null,
+          "delivery_fixed": null,
+          "other_fixed": null,
+          "renovation": null,
+          "equipment": null,
+          "deposit": null,
+          "stock": null,
+          "stocking_days": null,
+          "available_cash": null,
+          "area_sqm": null,
+          "location": null,
+          "channels": null,
+          "public_facts": null
+        }
+      },
+      "missing": [
+        "fruit.cost_basis",
+        "fruit.packaging_rate",
+        "fruit.channel_rate",
+        "fruit.payment_tax_rate",
+        "fruit.utilities",
+        "fruit.delivery_fixed",
+        "fruit.other_fixed",
+        "fruit.stock",
+        "fruit.stocking_days",
+        "fruit.gross_margin",
+        "fruit.loss_rate"
+      ]
+    },
+    {
+      "user": "房租回到每月4500，营业额回到每天3000，每月营业还是30天。苹果零售价8元/斤，不是客单价。",
+      "reply": "已改回：日营业额 3000 元/天、每月营业 30 天、房租 4500 元/月。苹果零售价 8 元/斤已记入对外商品资料，不当作客单价。\n\n接下来需要确认采购成本口径，二选一：\n1）未损耗毛利率 + 损耗率；\n2）含损耗的综合采购成本率（销售额中采购成本占多少）。\n\n你选哪个？",
+      "parameters": {
+        "schema_version": 3,
+        "stage": "operating",
+        "forecast_start": null,
+        "fruit": {
+          "revenue_basis": {
+            "base": "revenue",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "sales_amount": {
+            "base": 3000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "原始营业额3000元/day"
+          },
+          "sales_period": {
+            "base": "day",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "daily_transactions": null,
+          "avg_ticket": null,
+          "open_days": {
+            "base": 30.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "cost_basis": null,
+          "gross_margin": null,
+          "loss_rate": null,
+          "procurement_ratio": null,
+          "packaging_rate": null,
+          "channel_rate": null,
+          "payment_tax_rate": null,
+          "rent": {
+            "base": 4500.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：4500元/月。"
+          },
+          "staff_cost": {
+            "base": 7800.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：300元/天。按用户确认每月26天换算。实际付薪1人。"
+          },
+          "owner_salary": {
+            "base": 5000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：5000元/月。"
+          },
+          "utilities": null,
+          "delivery_fixed": null,
+          "other_fixed": null,
+          "renovation": null,
+          "equipment": null,
+          "deposit": null,
+          "stock": null,
+          "stocking_days": null,
+          "available_cash": null,
+          "area_sqm": null,
+          "location": null,
+          "channels": null,
+          "public_facts": {
+            "base": {
+              "products": "苹果",
+              "retail_prices": "苹果8元/斤",
+              "confirmed_origin": null,
+              "delivery_rules": null,
+              "promotions": null
+            },
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          }
+        }
+      },
+      "missing": [
+        "fruit.cost_basis",
+        "fruit.packaging_rate",
+        "fruit.channel_rate",
+        "fruit.payment_tax_rate",
+        "fruit.utilities",
+        "fruit.delivery_fixed",
+        "fruit.other_fixed",
+        "fruit.stock",
+        "fruit.stocking_days",
+        "fruit.gross_margin",
+        "fruit.loss_rate"
+      ]
+    },
+    {
+      "user": "毛利率按售价为分母，未损耗前30%，损耗按采购成本加权10%。包装1%，渠道佣金2%，支付及税费确认0。水电每月1500，固定配送和其他固定支出都为0；当前库存进货成本4000，备货3天，可用现金暂时不知道。",
+      "reply": "必填项已齐全，先跟你核对：\n\n- 营业额：3000 元/天，每月营业 30 天\n- 成本口径：未损耗毛利率 30%（按售价计算），损耗按采购成本加权 10%\n- 包装 1%、渠道佣金 2%、支付及税费 0\n- 房租 4500 元/月；水电 1500 元/月\n- 人工：亲戚 300 元/天×26 天=7800 元/月，你本人 5000 元/月\n- 固定配送 0、其他固定支出 0\n- 库存进货成本 4000 元，备货 3 天；可用现金暂空\n\n确认无误的话我就出测算结果。另外，开业时的装修、冷柜货架这类投入要不要补记？已有就报金额，没有就说不用记录。",
+      "parameters": {
+        "schema_version": 3,
+        "stage": "operating",
+        "forecast_start": null,
+        "fruit": {
+          "revenue_basis": {
+            "base": "revenue",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "sales_amount": {
+            "base": 3000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "原始营业额3000元/day"
+          },
+          "sales_period": {
+            "base": "day",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "daily_transactions": null,
+          "avg_ticket": null,
+          "open_days": {
+            "base": 30.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "cost_basis": {
+            "base": "margin_loss",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "gross_margin": {
+            "base": 0.3,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "loss_rate": {
+            "base": 0.1,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "procurement_ratio": null,
+          "packaging_rate": {
+            "base": 0.01,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "channel_rate": {
+            "base": 0.02,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "payment_tax_rate": {
+            "base": 0.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "rent": {
+            "base": 4500.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：4500元/月。"
+          },
+          "staff_cost": {
+            "base": 7800.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：300元/天。按用户确认每月26天换算。实际付薪1人。"
+          },
+          "owner_salary": {
+            "base": 5000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：5000元/月。"
+          },
+          "utilities": {
+            "base": 1500.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：1500元/月。"
+          },
+          "delivery_fixed": {
+            "base": 0.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：0元/月。"
+          },
+          "other_fixed": {
+            "base": 0.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：0元/月。"
+          },
+          "renovation": null,
+          "equipment": null,
+          "deposit": null,
+          "stock": {
+            "base": 4000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "stocking_days": {
+            "base": 3.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "available_cash": null,
+          "area_sqm": null,
+          "location": null,
+          "channels": null,
+          "public_facts": {
+            "base": {
+              "products": "苹果",
+              "retail_prices": "苹果8元/斤",
+              "confirmed_origin": null,
+              "delivery_rules": null,
+              "promotions": null
+            },
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          }
+        }
+      },
+      "missing": []
+    },
+    {
+      "user": "确认测算",
+      "reply": "测算已完成，正在打开结果。",
+      "parameters": {
+        "schema_version": 3,
+        "stage": "operating",
+        "forecast_start": "2026-11-06",
+        "fruit": {
+          "revenue_basis": {
+            "base": "revenue",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "sales_amount": {
+            "base": 3000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "原始营业额3000元/day"
+          },
+          "sales_period": {
+            "base": "day",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "daily_transactions": null,
+          "avg_ticket": null,
+          "open_days": {
+            "base": 30.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "cost_basis": {
+            "base": "margin_loss",
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "gross_margin": {
+            "base": 0.3,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "loss_rate": {
+            "base": 0.1,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "procurement_ratio": null,
+          "packaging_rate": {
+            "base": 0.01,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "channel_rate": {
+            "base": 0.02,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "payment_tax_rate": {
+            "base": 0.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "rent": {
+            "base": 4500.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：4500元/月。"
+          },
+          "staff_cost": {
+            "base": 7800.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：300元/天。按用户确认每月26天换算。实际付薪1人。"
+          },
+          "owner_salary": {
+            "base": 5000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：5000元/月。"
+          },
+          "utilities": {
+            "base": 1500.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：1500元/月。"
+          },
+          "delivery_fixed": {
+            "base": 0.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：0元/月。"
+          },
+          "other_fixed": {
+            "base": 0.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": "用户原话：0元/月。"
+          },
+          "renovation": null,
+          "equipment": null,
+          "deposit": null,
+          "stock": {
+            "base": 4000.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "stocking_days": {
+            "base": 3.0,
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          },
+          "available_cash": null,
+          "area_sqm": null,
+          "location": null,
+          "channels": null,
+          "public_facts": {
+            "base": {
+              "products": "苹果",
+              "retail_prices": "苹果8元/斤",
+              "confirmed_origin": null,
+              "delivery_rules": null,
+              "promotions": null
+            },
+            "pessimistic": null,
+            "optimistic": null,
+            "source": "user",
+            "note": null
+          }
+        }
+      },
+      "missing": []
+    }
+  ],
+  "report": {
+    "status": "succeeded",
+    "input_snapshot": {
+      "fruit": {
+        "rent": {
+          "base": 3400.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "stock": {
+          "base": 4000.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "deposit": {
+          "base": 9000.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "area_sqm": null,
+        "channels": null,
+        "location": null,
+        "equipment": {
+          "base": 20000.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "loss_rate": {
+          "base": 0.1,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "open_days": {
+          "base": 30.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "utilities": {
+          "base": 1500.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "avg_ticket": null,
+        "cost_basis": {
+          "base": "margin_loss",
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "renovation": {
+          "base": 30000.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "staff_cost": {
+          "base": 6000.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "other_fixed": {
+          "base": 0.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "channel_rate": {
+          "base": 0.02,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "gross_margin": {
+          "base": 0.3,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "owner_salary": {
+          "base": 5000.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "public_facts": {
+          "base": {
+            "products": "苹果、蜜柚",
+            "promotions": "周六苹果两斤15元",
+            "retail_prices": "苹果8元/斤，蜜柚6元/斤",
+            "delivery_rules": "只到店自提",
+            "confirmed_origin": null
+          },
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "sales_amount": {
+          "base": 90000.0,
+          "note": null,
+          "source": "user",
+          "optimistic": 105000.0,
+          "pessimistic": 75000.0
+        },
+        "sales_period": {
+          "base": "month",
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "revenue_basis": {
+          "base": "revenue",
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "stocking_days": {
+          "base": 3.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "available_cash": null,
+        "delivery_fixed": {
+          "base": 0.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "packaging_rate": {
+          "base": 0.01,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "payment_tax_rate": {
+          "base": 0.0,
+          "note": null,
+          "source": "user",
+          "optimistic": null,
+          "pessimistic": null
+        },
+        "procurement_ratio": null,
+        "daily_transactions": null
+      },
+      "stage": "preparing",
+      "forecast_start": "2026-11-06",
+      "schema_version": 3
+    },
+    "base_results": {
+      "fixed_cost": 15900.0,
+      "monthly_net": 1400.0000000000073,
+      "payback_month": 48,
+      "runway_months": null,
+      "cash_shortfall": null,
+      "monthly_revenue": 90000.0,
+      "reference_stock": 6999.999999999999,
+      "stock_shortfall": 2999.999999999999,
+      "break_even_daily": 2757.22543352601,
+      "funding_required": 66000.0,
+      "contribution_rate": 0.19222222222222232,
+      "procurement_ratio": 0.7777777777777777,
+      "break_even_monthly": 82716.7630057803,
+      "startup_investment": 63000.0,
+      "monthly_procurement": 69999.99999999999,
+      "monthly_net_excl_owner": 6400.000000000007,
+      "payback_month_excl_owner": 11
+    },
+    "content": "这份结果可解读为：在筹备开店阶段，按现销、采购即付、库存稳定推演未来36个月，月营业额90000元，月采购成本含损耗70000元。扣除老板报酬后月结余1400元，未扣除老板报酬月结余6400元。保本月营业额82716.8元，对应保本日营业额2757.23元。\n\n参考备货资金7000元，当前备货缺口3000元。本次所需资金66000元，其中筹备启动投入63000元。现金可用期未知或无持续亏损，因此无法凭现有现金推断资金缺口或能撑多久。\n\n回本预测为48个月，但这只表示未来经营推演，不是历史已实现利润或历史回本。筹备亏损时，资金需求仅指启动与备货，不代表足够持续经营的总资金保证。\n\n可执行的核实办法：先确认月营业额90000元和月采购成本含损耗70000元是否来自可核对的进货单据、销售记录；再核对参考备货资金7000元和备货缺口3000元是否与实际库存按进货成本记录一致；最后核对筹备启动投入63000元是否仅包含启动和备货，不重复计入历史装修、设备、押金。\n\n测算基于用户确认的水果店经营假设，不构成投资建议。",
+    "model": "deepseek-v4-pro"
+  },
+  "content": {
+    "status": "succeeded",
+    "platform": "xiaohongshu",
+    "input": {
+      "store": {
+        "city": "深圳",
+        "name": "街角水果 · 验收",
+        "channels": null,
+        "location": null,
+        "public_facts": {
+          "products": "苹果、蜜柚",
+          "promotions": "周六苹果两斤15元",
+          "retail_prices": "苹果8元/斤，蜜柚6元/斤",
+          "delivery_rules": "只到店自提"
+        }
+      },
+      "topic": {
+        "id": "fruit:shopping",
+        "date": null,
+        "kind": "fruit_retail",
+        "angle": "围绕实际在售水果讲清选购需求、规格与价格单位",
+        "title": "这袋水果，怎么选更合适",
+        "sources": [
+          {
+            "url": null,
+            "title": "街角水果 · 验收 · 水果零售档案",
+            "excerpt": "城市：深圳；只使用已确认的公开商品与活动资料。",
+            "retrieved_at": "2026-11-06"
+          }
+        ]
+      },
+      "voice": "warm",
+      "request": {
+        "voice": "warm",
+        "audience": null,
+        "platform": "xiaohongshu",
+        "topic_id": "fruit:shopping",
+        "hot_topic_id": null,
+        "confirmed_facts": ""
+      },
+      "audience": null,
+      "industry": "fruit_retail",
+      "platform": "xiaohongshu",
+      "topic_id": "fruit:shopping",
+      "hot_topic": null,
+      "hot_topic_id": null,
+      "prompt_version": "content-5",
+      "confirmed_facts": ""
+    },
+    "content": "深圳买苹果蜜柚，先看这份价目再挑\n\n想买点日常水果，又怕挑多了吃不完、挑少了不够分？先把规格和价格看清楚，再按人数下手会轻松很多。\n\n深圳街角水果 · 验收现在在卖：\n🍎 苹果 8元/斤\n🍊 蜜柚 6元/斤\n🛍 周六苹果活动：两斤15元\n🚶 配送方式：只到店自提\n\n选购时可以这样想：\n苹果按个数和大小估一估重量，两个人日常吃可以先拿少量；\n蜜柚先看想要一次吃多少，再决定拿一个还是分次买；\n周六想买苹果的话，直接按两斤的活动规格拿更省心。\n\n保存上，苹果和蜜柚的成熟度、室内温度和摆放位置不同，存放时间会有差别。未切开的水果放在通风阴凉处，切开后的蜜柚建议包好冷藏，具体能放多久还要看实际状态。\n\n【待填：苹果和蜜柚已确认的口感特点及适合人群】\n【待填：门店具体位置和营业时间】\n【待填：周六苹果活动的截止时间或结束日期】\n\n你买水果更常按斤挑，还是按个数拿？#深圳水果 #苹果 #蜜柚 #水果选购 #街角水果 #到店自提 #周六水果",
+    "model": "deepseek-flash",
+    "review": "真实API生成；4–8话题、最多3待填项及内部财务未进入营销输入检查通过；浏览器补填和复制通过。有限规则与人工抽查，不能替代店主审核。"
+  }
+}

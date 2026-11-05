@@ -57,7 +57,7 @@ async def topics(profile_id: UUID, db: DB, user: CurrentUser):
 @router.get("/hot-topics")
 async def hot_topics(profile_id: UUID, db: DB, user: CurrentUser):
     profile = await profiles.get_owned_profile(db, user.id, profile_id)
-    return await recommendations(db, profile.template_key)
+    return await recommendations(db, profile.template_key, profile.industry)
 
 
 @router.post("/hot-topics/refresh")
@@ -77,7 +77,10 @@ async def refresh_hot_topics(
                 state.hot_refresh_error = "热点更新暂不可用；仍可选择有效的已有来源，或直接写日常。"
             state.hot_refreshed_at = time.monotonic()
         error = getattr(state, "hot_refresh_error", None)
-    return {"topics": await recommendations(db, profile.template_key), "error": error}
+    return {
+        "topics": await recommendations(db, profile.template_key, profile.industry),
+        "error": error,
+    }
 
 
 @router.get("/drafts")
@@ -136,7 +139,7 @@ async def generate(
         hot = next(
             (
                 t
-                for t in await recommendations(db, profile.template_key)
+                for t in await recommendations(db, profile.template_key, profile.industry)
                 if t["id"] == body.hot_topic_id
             ),
             None,
@@ -156,6 +159,20 @@ async def generate(
             "value_proposition": profile.value_proposition,
         },
     }
+    if profile.industry == "fruit_retail":
+        from app.templates.registry import parse_parameters
+
+        fruit = parse_parameters(profile.template_key, profile.parameters).fruit
+        data["industry"] = "fruit_retail"
+        data["store"] = {
+            "name": profile.name,
+            "city": profile.city,
+            "location": fruit.location.base if fruit.location else None,
+            "channels": fruit.channels.base if fruit.channels else None,
+            "public_facts": fruit.public_facts.base.model_dump(exclude_none=True)
+            if fruit.public_facts
+            else {},
+        }
     if profile.template_key == "orchard":
         from app.templates.registry import parse_parameters
 
@@ -183,6 +200,29 @@ async def generate(
         topic=topic["title"] + (f" · {hot['title']}" if hot else ""),
         angle=topic["angle"],
         sources=topic["sources"]
+        + (
+            [
+                {
+                    "title": "用户确认的水果零售公开资料",
+                    "url": None,
+                    "excerpt": "；".join(
+                        f"{label}：{data['store']['public_facts'][key]}"
+                        for key, label in {
+                            "products": "在售水果",
+                            "retail_prices": "零售价与单位",
+                            "confirmed_origin": "已确认产地",
+                            "delivery_rules": "配送规则",
+                            "promotions": "活动与限制",
+                        }.items()
+                        if data["store"]["public_facts"].get(key)
+                    )
+                    or "尚未填写对外商品与活动资料",
+                    "retrieved_at": utcnow().date().isoformat(),
+                }
+            ]
+            if profile.industry == "fruit_retail"
+            else []
+        )
         + (
             [
                 {

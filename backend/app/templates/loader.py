@@ -154,8 +154,13 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 
 
 @lru_cache
-def load_template(key: str = "physical_store") -> Template:
+def load_template(key: str = "physical_store", industry: str | None = None) -> Template:
     """读取模板配置。结果会被缓存，修改 YAML 后需要重启程序。"""
+    if key == "physical_store" and industry == "fruit_retail":
+        from .registry import FruitTemplate
+
+        metadata = _read_yaml(TEMPLATES_DIR / "fruit_retail" / "parameters.yaml")
+        return FruitTemplate([ParamSpec.model_validate(item) for item in metadata["parameters"]])
     if key == "orchard":
         from .registry import OrchardTemplate
 

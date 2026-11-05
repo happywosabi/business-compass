@@ -79,7 +79,13 @@ async function create() {
           ><input
             v-model="form.name"
             class="bc-input"
-            :placeholder="orchard ? '比如：山间红心蜜柚果园' : '比如：大学城奶茶店'"
+            :placeholder="
+              orchard
+                ? '比如：山间红心蜜柚果园'
+                : form.industry === 'fruit_retail'
+                  ? '比如：街角鲜果店'
+                  : '比如：大学城奶茶店'
+            "
             maxlength="80"
             required
             autofocus
@@ -109,7 +115,9 @@ async function create() {
           {{
             orchard
               ? '适用于已投产果园，支持多品种、批发与零售，以经营期总账看清收成。'
-              : '从饮品店开始，一步步算清投入与经营。'
+              : form.industry === 'fruit_retail'
+                ? '适用于筹备或经营中的水果零售店，以整店营业额、损耗和备货资金看清经营。'
+                : '从饮品店开始，一步步算清投入与经营。'
           }}
         </p>
         <fieldset v-if="!orchard" class="stage-select">

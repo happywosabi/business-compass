@@ -11,7 +11,7 @@ import { formatDate } from '@/utils/format'
 
 const templates = ref<Template[]>([])
 const totalFor = (p: Profile) =>
-  templates.value.find((t) => t.key === p.template_key)?.quick_required_keys?.length ?? 0
+  p.quick_required_keys?.length ?? templates.value.find((t) => t.key === p.template_key)?.quick_required_keys?.length ?? 0
 const profiles = ref<Profile[]>([]),
   view = ref<View>('active'),
   loading = ref(true),
@@ -117,7 +117,7 @@ onMounted(load)
         </div>
         <h2>{{ profile.name }}</h2>
         <p class="sub">
-          {{ profile.city }} · {{ profile.template_key === 'orchard' ? '果园' : '饮品' }} ·
+          {{ profile.city }} · {{ profile.template_key === 'orchard' ? '果园' : profile.industry === 'fruit_retail' ? '水果零售' : '饮品' }} ·
           {{ PROFILE_STAGES[profile.stage] }}
         </p>
         <div class="mini-route">

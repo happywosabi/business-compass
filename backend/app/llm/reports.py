@@ -29,6 +29,34 @@ DISCLAIMER = "测算结果基于用户提供的估计和行业默认值，不构
 
 def facts(snapshot):
     base = snapshot.results["scenarios"]["base"]
+    if snapshot.results.get("kind") == "fruit_retail":
+        return {
+            "元": [
+                base[k]
+                for k in (
+                    "monthly_revenue",
+                    "monthly_procurement",
+                    "fixed_cost",
+                    "monthly_net",
+                    "monthly_net_excl_owner",
+                    "break_even_monthly",
+                    "break_even_daily",
+                    "reference_stock",
+                    "stock_shortfall",
+                    "startup_investment",
+                    "funding_required",
+                    "cash_shortfall",
+                )
+                if base[k] is not None
+            ],
+            "月": [36, 120]
+            + [
+                base[k]
+                for k in ("payback_month", "payback_month_excl_owner", "runway_months")
+                if base[k] is not None
+            ],
+            "%": [base["procurement_ratio"] * 100, base["contribution_rate"] * 100],
+        }
     if snapshot.template_key == "orchard":
         return {
             "元": [
@@ -108,6 +136,39 @@ def verify_numbers(text: str, allowed: dict) -> bool:
 def report_material(snapshot):
     """模型只接收有含义的可引用结果，避免把无标签数字或其他场景混在一起。"""
     base = snapshot.results["scenarios"]["base"]
+    if snapshot.results.get("kind") == "fruit_retail":
+        labels = {
+            "monthly_revenue": "月营业额",
+            "monthly_procurement": "月采购成本（含损耗）",
+            "monthly_net": "扣老板报酬月结余",
+            "monthly_net_excl_owner": "未扣老板报酬月结余",
+            "break_even_monthly": "保本月营业额",
+            "break_even_daily": "保本日营业额",
+            "reference_stock": "参考备货资金",
+            "stock_shortfall": "备货缺口",
+            "funding_required": "本次所需资金",
+            "startup_investment": "筹备启动投入",
+            "cash_shortfall": "已知现金下的即时资金缺口",
+        }
+        return {
+            **{
+                label: f"{base[k]:g}元" if base[k] is not None else "未知或不适用"
+                for k, label in labels.items()
+            },
+            "预测阶段": "经营中，只预测未来"
+            if snapshot.results["stage"] == "operating"
+            else "筹备开店",
+            "边界": snapshot.results["assumptions"],
+            "回本预测": f"{base['payback_month']}个月"
+            if base["payback_month"] is not None
+            else "经营中不计算历史回本"
+            if snapshot.results["stage"] == "operating"
+            else "120个月内未回本",
+            "现金可用期": f"{base['runway_months']:g}个月"
+            if base["runway_months"] is not None
+            else "未知或无持续亏损",
+            "是否已提供范围": bool(snapshot.results["sensitivity"]),
+        }
     if snapshot.template_key == "orchard":
         return {
             "本期收入": f"{base['revenue']:g}元",
@@ -157,12 +218,24 @@ async def generate(app, run_id, snapshot):
                         "你是商业罗盘，用大白话简短解读在产果园经营期总账。只引用材料数字，不自行计算；数字紧跟元或元/kg单位，不写数字编号。必须说明全部销售款收齐假设，不声称现金流、建园回本或投资建议。区分经营结余与扣未付酬家庭劳动估值后收益，说明核实产量、售价、损耗及销路的方法；没有范围请提醒补充，不编农业基准。材料："
                         + json.dumps(report_material(snapshot), ensure_ascii=False)
                     )
+                if snapshot.results.get("kind") == "fruit_retail":
+                    prompt = (
+                        "你是商业罗盘，用不超过400字解读水果零售整店预测，不写开场白。只能引用材料中带单位的数字，不自行运算，不写数字编号。数字紧跟元、个月或%，禁止用汉字写金额、月份、百分比；引用数字必须使用阿拉伯数字和元/个月/%单位。不写数字编号。禁止输出材料之外的数字，禁止把材料中的数字改变含义；可只引用月结余和备货资金，其他用文字概括。没有范围提醒补范围。清楚区分扣/未扣老板报酬的结余、采购成本与备货占用。经营中只预测从现在起的未来，不能声称历史利润或历史回本；现金未知不能推断缺口或能撑多久。筹备亏损时资金需求只是启动与备货，不是足够撑住经营的总资金保证。给出可执行的核实办法，不编行业基准，不给投入建议。材料："
+                        + json.dumps(report_material(snapshot), ensure_ascii=False)
+                    )
                 content, accepted, total_in, total_out = "", False, 0, 0
                 for attempt in range(2):
                     await check_cancel(factory, run_id)
                     message, usage = await app.state.llm.complete(
                         [
-                            {"role": "system", "content": prompt},
+                            {
+                                "role": "system",
+                                "content": (
+                                    "用简短自然语言说明水果零售店需要核实的假设和操作方法：销售是否实现、采购是否含损耗、库存是否积压、老板劳动报酬是否单列。严禁任何阿拉伯数字或汉字数量、金额、时间长度；不引用测算数值，不讨论几年或几个月，不给出回本或投资承诺。仅用短段落，不编号。"
+                                    if attempt and snapshot.results.get("kind") == "fruit_retail"
+                                    else prompt
+                                ),
+                            },
                             {
                                 "role": "user",
                                 "content": "请解读这份结果。"
@@ -190,6 +263,8 @@ async def generate(app, run_id, snapshot):
                     + (
                         "测算基于用户提供的估计，假定销售款全部收齐，不构成投资建议。"
                         if snapshot.template_key == "orchard"
+                        else "测算基于用户确认的水果店经营假设，不构成投资建议。"
+                        if snapshot.results.get("kind") == "fruit_retail"
                         else DISCLAIMER
                     )
                     if accepted

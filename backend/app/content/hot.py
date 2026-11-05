@@ -197,7 +197,7 @@ async def _collect(factory, settings, provider):
     return added
 
 
-async def recommendations(db, template_key="physical_store"):
+async def recommendations(db, template_key="physical_store", industry=None):
     rows = list(
         await db.scalars(
             select(HotTopic)
@@ -206,7 +206,7 @@ async def recommendations(db, template_key="physical_store"):
             .limit(60)
         )
     )
-    pattern = ORCHARD if template_key == "orchard" else STORE
+    pattern = ORCHARD if template_key == "orchard" or industry == "fruit_retail" else STORE
     rows = [
         r
         for r in rows

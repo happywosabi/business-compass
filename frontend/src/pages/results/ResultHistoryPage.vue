@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { evaluationsApi, type Evaluation } from '@/api/evaluations'
+import {
+  evaluationsApi,
+  type Evaluation,
+  isFruitEvaluation,
+  isStoreEvaluation,
+} from '@/api/evaluations'
 import { errorMessage } from '@/api/client'
 import PageHead from '@/components/PageHead.vue'
 import { fundingRange, payback } from '@/utils/finance'
@@ -47,7 +52,14 @@ onMounted(load)
       <h2>{{ item.label || '一次新的可能性' }}</h2>
       <p>{{ item.summary }}</p>
       <div class="history-stats">
-        <template v-if="item.template_key === 'physical_store'"
+        <template v-if="isFruitEvaluation(item)"
+          ><span
+            >月结余 {{ item.results.scenarios.base!.monthly_net.toLocaleString('zh-CN') }} 元</span
+          ><span>{{
+            item.results.stage === 'operating' ? '未来经营预测' : '筹备推演'
+          }}</span></template
+        >
+        <template v-else-if="isStoreEvaluation(item)"
           ><span>准备 {{ fundingRange(item.results.scenarios.base.suggested_funding) }}</span
           ><span>回本 {{ payback(item.results.scenarios.base.payback_month) }}</span></template
         ><template v-else

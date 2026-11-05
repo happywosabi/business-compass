@@ -45,7 +45,7 @@ const visible = computed(() =>
 const resultId = computed(
   () => [...history.value.runs].reverse().find((r) => r.output.evaluation_id)?.output.evaluation_id,
 )
-const total = computed(() => template.value?.quick_required_keys?.length ?? 0)
+const total = computed(() => profile.value?.quick_required_keys?.length ?? template.value?.quick_required_keys?.length ?? 0)
 const progress = computed(() => total.value - (profile.value?.quick_missing.length ?? total.value))
 let controller: AbortController | undefined,
   poll: ReturnType<typeof setTimeout> | undefined,
@@ -100,7 +100,7 @@ async function loadHistory() {
 async function load() {
   try {
     const [, t] = await Promise.all([refreshProfile(), profilesApi.templates()])
-    template.value = t.find((x) => x.key === profile.value!.template_key)
+    template.value = (profile.value!.industry === 'fruit_retail' ? await profilesApi.templates('fruit_retail') : t).find((x) => x.key === profile.value!.template_key)
     await loadHistory()
     retryAvailable.value = !!localStorage.getItem(storageKey)
   } catch (e) {

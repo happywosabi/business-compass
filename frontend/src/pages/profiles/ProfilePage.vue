@@ -15,6 +15,8 @@ import { errorMessage } from '@/api/client'
 import PageHead from '@/components/PageHead.vue'
 import CompassMark from '@/components/CompassMark.vue'
 import OrchardForm from '@/components/OrchardForm.vue'
+import FruitRetailForm from '@/components/FruitRetailForm.vue'
+import type { components } from '@/api/schema'
 import type { OrchardParams } from '@/api/orchard'
 import ParamRow from '@/components/ParamRow.vue'
 import ParamEditor from '@/components/ParamEditor.vue'
@@ -50,7 +52,10 @@ const groups = computed(() =>
     }))
     .filter((g) => g.fields.length),
 )
-const total = computed(() => template.value?.quick_required_keys?.length ?? 0)
+const total = computed(
+  () =>
+    profile.value?.quick_required_keys?.length ?? template.value?.quick_required_keys?.length ?? 0,
+)
 const progress = computed(() => total.value - (profile.value?.quick_missing.length ?? total.value))
 async function saveOrchard(changes: Record<string, unknown>) {
   await action(async () => {
@@ -59,7 +64,7 @@ async function saveOrchard(changes: Record<string, unknown>) {
       profile.value!.revision,
       changes,
     )
-    showToast('果园档案已保存')
+    showToast('档案已保存')
   })
 }
 let flash: ReturnType<typeof setTimeout>
@@ -73,7 +78,9 @@ async function load() {
       profilesApi.templates(),
     ])
     profile.value = p
-    template.value = t.find((item) => item.key === p.template_key)
+    template.value = (
+      p.industry === 'fruit_retail' ? await profilesApi.templates(p.industry) : t
+    ).find((item) => item.key === p.template_key)
   } catch (e) {
     error.value = errorMessage(e)
   } finally {
@@ -239,8 +246,16 @@ onScopeDispose(() => clearTimeout(flash))
         </form></Transition
       >
       <div class="profile-workspace">
+        <FruitRetailForm
+          v-if="profile.industry === 'fruit_retail'"
+          :key="profile.revision"
+          :parameters="profile.parameters as components['schemas']['FruitRetailParams']"
+          :template="template"
+          :busy="busy"
+          @submit="saveOrchard"
+        />
         <OrchardForm
-          v-if="profile.template_key === 'orchard'"
+          v-else-if="profile.template_key === 'orchard'"
           :key="profile.revision"
           :parameters="profile.parameters as OrchardParams"
           :busy="busy"
@@ -285,7 +300,9 @@ onScopeDispose(() => clearTimeout(flash))
                 progress === total
                   ? profile.template_key === 'orchard'
                     ? '产销与成本已确认，可以核算本期结余。'
-                    : '其余缺项会用默认值补齐，并明确告诉你哪些是假设。'
+                    : profile.industry === 'fruit_retail'
+                      ? '口径已确认，可以推演经营结余与备货资金。'
+                      : '其余缺项会用默认值补齐，并明确告诉你哪些是假设。'
                   : '不用一次填完。拿不准的先留着，问过房东、看过报价再回来。'
               }}
             </p>
@@ -595,7 +612,8 @@ onScopeDispose(() => clearTimeout(flash))
   .profile-aside {
     order: -1;
   }
-  .next-step {
+  .next-step > svg,
+  .next-step .required-list {
     display: none;
   }
   .profile-tools {

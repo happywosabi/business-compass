@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, watch, defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
-import { evaluationsApi, type Evaluation } from '@/api/evaluations'
+import { evaluationsApi, type Evaluation, isFruitEvaluation } from '@/api/evaluations'
 import { profilesApi, type Profile } from '@/api/profiles'
 import { errorMessage } from '@/api/client'
+const FruitResult = defineAsyncComponent(() => import('./FruitRetailResultPage.vue'))
 const StoreResult = defineAsyncComponent(() => import('./StoreResultPage.vue'))
 const OrchardResult = defineAsyncComponent(() => import('./OrchardResultPage.vue'))
 const route = useRoute()
@@ -31,8 +32,14 @@ watch(() => route.fullPath, load, { immediate: true })
 </script>
 <template>
   <div class="result-dispatch">
+    <FruitResult
+      v-if="snapshot && profile && isFruitEvaluation(snapshot)"
+      :key="snapshot.id"
+      :snapshot="snapshot"
+      :profile="profile"
+    />
     <OrchardResult
-      v-if="snapshot?.template_key === 'orchard' && profile"
+      v-else-if="snapshot?.template_key === 'orchard' && profile"
       :key="snapshot.id"
       :snapshot="snapshot"
       :profile="profile"

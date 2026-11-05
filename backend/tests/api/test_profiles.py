@@ -35,7 +35,10 @@ async def test_template_metadata_comes_from_engine(owner):
     assert response.status_code == 200
     template = response.json()[0]
     assert template["version"] == 1
-    assert template["industries"] == [{"code": "drinks", "label": "饮品"}]
+    assert template["industries"] == [
+        {"code": "drinks", "label": "饮品"},
+        {"code": "fruit_retail", "label": "水果店（零售）"},
+    ]
     assert len([f for f in template["fields"] if f["quick_required"]]) == 7
     channel = next(f for f in template["fields"] if f["key"] == "revenue.channels")
     assert channel["value_schema"]["type"] == "array"

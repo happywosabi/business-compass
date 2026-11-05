@@ -15,6 +15,12 @@ export const PROFILE_STAGES: Record<string, string> = {
   operating: '已经开业',
 }
 export const LOCATIONS: Record<string, string> = {
+  revenue: '直接填营业额',
+  transactions: '笔数×客单价',
+  day: '每天',
+  month: '每月',
+  margin_loss: '未损耗毛利率＋损耗率',
+  inclusive: '含损耗综合采购成本率',
   mall: '商场',
   street: '街边',
   school: '学校旁',

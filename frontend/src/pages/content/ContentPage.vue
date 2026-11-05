@@ -30,6 +30,9 @@ const profiles = ref<Profile[]>([]),
   active = ref<Draft>(),
   editor = ref('')
 const audience = ref<'buyers' | 'consumers'>('consumers')
+const fruitRetail = computed(
+  () => profiles.value.find((p) => p.id === id.value)?.industry === 'fruit_retail',
+)
 const orchard = computed(
   () => profiles.value.find((p) => p.id === id.value)?.template_key === 'orchard',
 )
@@ -198,7 +201,13 @@ onBeforeUnmount(() => {
             <span class="eyebrow">01 / 选一个切入点</span>
             <h2>今天，聊点什么</h2>
           </div>
-          <span class="sub">{{ orchard ? '供货合作 · 水果选购 · 果园日常' : '日历 · 门店日常 · 已核实来源' }}</span>
+          <span class="sub">{{
+            orchard
+              ? '供货合作 · 水果选购 · 果园日常'
+              : fruitRetail
+                ? '水果选购 · 到货清单 · 门店日常'
+                : '日历 · 门店日常 · 已核实来源'
+          }}</span>
         </header>
         <div class="topic-grid">
           <button
@@ -215,7 +224,9 @@ onBeforeUnmount(() => {
                   ? '营销日历'
                   : topic.kind === 'hot'
                     ? '热点来源'
-                    : topic.kind === 'orchard' ? '果园经营' : '门店日常'
+                    : topic.kind === 'orchard'
+                      ? '果园经营'
+                      : '门店日常'
               }}</span
               ><span>{{ topic.date || '随时可写' }}</span>
             </header>
@@ -227,7 +238,12 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div ref="hotPanel" class="hot-panel">
-          <HotTopicPicker v-model="hotTopicId" :profile-id="id" :verified="auth.isVerified" :disabled="busy" />
+          <HotTopicPicker
+            v-model="hotTopicId"
+            :profile-id="id"
+            :verified="auth.isVerified"
+            :disabled="busy"
+          />
         </div>
         <section v-if="active" class="bc-card draft-result">
           <header class="bc-card-title">
@@ -293,7 +309,11 @@ onBeforeUnmount(() => {
               <p>{{ source.excerpt }}</p>
               <small>
                 {{ source.publisher ? source.publisher + ' · ' : '' }}
-                {{ source.published_at ? '发布时间 ' + new Date(source.published_at).toLocaleString('zh-CN') + ' · ' : '' }}
+                {{
+                  source.published_at
+                    ? '发布时间 ' + new Date(source.published_at).toLocaleString('zh-CN') + ' · '
+                    : ''
+                }}
                 获取于 {{ new Date(source.retrieved_at).toLocaleString('zh-CN') }}
               </small>
             </article>
@@ -366,7 +386,9 @@ onBeforeUnmount(() => {
             :placeholder="
               orchard
                 ? '补充真实规格、采收日记、供货规则。档案中的对外供货资料会自动带入，内部成本收益不会用于文案。'
-                : '比如：今天到店买奶茶送哪吒周边；可补充真实菜单、价格、活动规则或制作细节。'
+                : fruitRetail
+                  ? '补充实际到货水果、零售价及单位、产地、配送与活动规则；公开商品资料会自动带入。'
+                  : '比如：今天到店买奶茶送哪吒周边；可补充真实菜单、价格、活动规则或制作细节。'
             "
           />
         </label>
@@ -427,8 +449,14 @@ onBeforeUnmount(() => {
 .topic-main > header h2 {
   margin-top: 7px;
 }
-.hot-panel { min-width: 0; scroll-margin-top: 20px; }
-.hot-selected-note { color: var(--accent-ink); font-size: 12px; }
+.hot-panel {
+  min-width: 0;
+  scroll-margin-top: 20px;
+}
+.hot-selected-note {
+  color: var(--accent-ink);
+  font-size: 12px;
+}
 .topic-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -651,7 +679,10 @@ onBeforeUnmount(() => {
   .writing-panel {
     width: 100%;
   }
-  .hot-panel { order: 3; width: 100%; }
+  .hot-panel {
+    order: 3;
+    width: 100%;
+  }
   .writing-panel {
     position: static;
   }

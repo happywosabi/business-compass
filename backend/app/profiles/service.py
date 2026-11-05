@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import utcnow
 from app.db.models import ParameterChange, Profile
 from app.engine import PhysicalStoreParams
+from app.engine.fruit_retail import FruitRetailParams
 from app.engine.orchard import OrchardParams
 from app.templates import load_template
 from app.templates.registry import parameter_keys, parameter_model, parse_parameters
@@ -24,9 +25,9 @@ from .schemas import FieldOut, IndustryOut, ProfileCreate, ProfileOut, TemplateO
 RESTORE_DAYS = 30
 
 
-def template_info(key="physical_store") -> TemplateOut:
-    template = load_template(key)
-    schema = parameter_model(key).model_json_schema()
+def template_info(key="physical_store", industry=None) -> TemplateOut:
+    template = load_template(key, industry)
+    schema = parameter_model(key, industry).model_json_schema()
     definitions = schema["$defs"]
 
     def resolve(item):
@@ -40,12 +41,17 @@ def template_info(key="physical_store") -> TemplateOut:
         fields.append(
             FieldOut(**spec.model_dump(), value_schema=param_schema["properties"]["base"])
         )
+    industries = [
+        IndustryOut(code=k, label=template.industry(k).label) for k in template.industry_codes
+    ]
+    if key == "physical_store" and industry is None:
+        industries.append(IndustryOut(code="fruit_retail", label="水果店（零售）"))
     return TemplateOut(
         key=template.key,
         version=template.version,
         label="果园经营" if key == "orchard" else "实体小店",
         quick_required_keys=template.quick_required_keys,
-        defaults_provisional=key != "orchard",
+        defaults_provisional=key != "orchard" and industry != "fruit_retail",
         groups={
             "basic": "经营期间",
             "product": "销售对象",
@@ -54,10 +60,16 @@ def template_info(key="physical_store") -> TemplateOut:
             "none": "供货资料",
         }
         if key == "orchard"
+        else {
+            "basic": "营业额与口径",
+            "product": "采购与损耗",
+            "shop": "库存与启动投入",
+            "costs": "每月经营支出",
+            "none": "门店及公开资料",
+        }
+        if industry == "fruit_retail"
         else {},
-        industries=[
-            IndustryOut(code=k, label=template.industry(k).label) for k in template.industry_codes
-        ],
+        industries=industries,
         fields=fields,
         definitions=definitions,
     )
@@ -78,7 +90,7 @@ async def get_owned_profile(
 
 
 def profile_out(profile: Profile) -> ProfileOut:
-    template = load_template(profile.template_key)
+    template = load_template(profile.template_key, profile.industry)
     params = parse_parameters(profile.template_key, profile.parameters)
     stale = []
     for key, rule in template.industry(profile.industry).derived.items():
@@ -89,10 +101,15 @@ def profile_out(profile: Profile) -> ProfileOut:
     data = {
         name: getattr(profile, name)
         for name in ProfileOut.model_fields
-        if name not in {"quick_missing", "derived_stale_keys"}
+        if name not in {"quick_missing", "derived_stale_keys", "quick_required_keys"}
     }
     return ProfileOut(
-        **data, quick_missing=template.quick_missing(params), derived_stale_keys=stale
+        **data,
+        quick_missing=template.quick_missing(params),
+        derived_stale_keys=stale,
+        quick_required_keys=params.required_keys()
+        if isinstance(params, FruitRetailParams)
+        else template.quick_required_keys,
     )
 
 
@@ -111,8 +128,8 @@ async def list_profiles(db: AsyncSession, user_id: UUID, view: str) -> list[Prof
 def record_changes(
     db: AsyncSession,
     profile: Profile,
-    before: PhysicalStoreParams | OrchardParams,
-    after: PhysicalStoreParams | OrchardParams,
+    before: PhysicalStoreParams | OrchardParams | FruitRetailParams,
+    after: PhysicalStoreParams | OrchardParams | FruitRetailParams,
     *,
     source: str,
     reason: str | None = None,
@@ -136,8 +153,8 @@ def record_changes(
 
 
 def user_parameters(
-    params: PhysicalStoreParams | OrchardParams,
-) -> PhysicalStoreParams | OrchardParams:
+    params: PhysicalStoreParams | OrchardParams | FruitRetailParams,
+) -> PhysicalStoreParams | OrchardParams | FruitRetailParams:
     """公开的手工编辑接口不能伪造默认值、实验或真实数据来源。"""
     if isinstance(params, OrchardParams):
 
@@ -158,9 +175,9 @@ def user_parameters(
     )
 
 
-def validate_ranges(params: PhysicalStoreParams | OrchardParams) -> None:
+def validate_ranges(params: PhysicalStoreParams | OrchardParams | FruitRetailParams) -> None:
     """收入悲观取低值，成本悲观取高值；避免情景名称与实际风险相反。"""
-    if isinstance(params, OrchardParams):
+    if isinstance(params, (OrchardParams, FruitRetailParams)):
         return
     for key in parameter_keys(params):
         value = params.get(key)
@@ -188,7 +205,7 @@ def validate_ranges(params: PhysicalStoreParams | OrchardParams) -> None:
 
 
 async def create_profile(db: AsyncSession, user_id: UUID, body: ProfileCreate) -> Profile:
-    template = load_template(body.template_key)
+    template = load_template(body.template_key, body.industry)
     if body.industry not in template.industry_codes:
         raise HTTPException(422, "业态与档案模板不匹配")
     params = user_parameters(body.parameters)
@@ -204,7 +221,7 @@ async def create_profile(db: AsyncSession, user_id: UUID, body: ProfileCreate) -
     record_changes(
         db,
         profile,
-        parameter_model(profile.template_key)(),
+        parameter_model(profile.template_key, profile.industry)(),
         params,
         source="user_edit",
         reason="新建档案",
@@ -224,6 +241,13 @@ async def write_profile(
     """单条条件 UPDATE 是并发裁决点；调用方提交事务及审计记录。"""
     if profile.template_key == "orchard" and "stage" in values and values["stage"] != "operating":
         raise HTTPException(422, "首期仅支持已投产果园")
+    if profile.industry == "fruit_retail" and "stage" in values:
+        params = parse_parameters(
+            profile.template_key, values.get("parameters", profile.parameters)
+        )
+        values["parameters"] = params.model_copy(update={"stage": values["stage"]}).model_dump(
+            mode="json"
+        )
     condition = Profile.deleted_at.is_not(None) if deleted else Profile.deleted_at.is_(None)
     result = await db.execute(
         update(Profile)
@@ -289,7 +313,7 @@ async def use_defaults(
     commit: bool = True,
     message_id: UUID | None = None,
 ) -> Profile:
-    template = load_template(profile.template_key)
+    template = load_template(profile.template_key, profile.industry)
     before = parse_parameters(profile.template_key, profile.parameters)
     try:
         cleared = before.with_values(dict.fromkeys(keys))
@@ -351,7 +375,7 @@ async def copy_profile(
     record_changes(
         db,
         new,
-        parameter_model(new.template_key)(),
+        parameter_model(new.template_key, new.industry)(),
         parse_parameters(new.template_key, new.parameters),
         source="user_edit",
         reason="从现有档案复制",
