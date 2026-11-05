@@ -61,3 +61,15 @@ def test_short_months_argument(milk_tea):
     projection = project(build_inputs(milk_tea), months=12)
     assert len(projection.months) == 12
     assert projection.payback_month is None  # 12 个月内回不了本
+
+
+def test_funding_uses_36_month_window_but_payback_checks_120(milk_tea):
+    from app.engine import evaluate
+
+    params = milk_tea.with_values({"fixed_cost.rent_increase_rate": 0.5})
+    full = project(build_inputs(params))
+    result = evaluate(params).scenarios["base"]
+    assert full.cash_low_month > 36
+    assert result.cash_low.month <= 36
+    assert result.cash_low.amount == min(row.cash for row in result.monthly)
+    assert result.payback_month == full.payback_month

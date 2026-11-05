@@ -37,8 +37,14 @@ def scenario_result(inputs: ScenarioInputs) -> ScenarioResult:
     steady_cash = inputs.steady_monthly_cash()
 
     if steady_cash > 0:
-        cash_low = CashLow(amount=with_owner.cash_low_amount, month=with_owner.cash_low_month)
-        need = max(-with_owner.cash_low_amount, 0.0)
+        # 资金建议与展示窗口一致；120 个月推演仅用于寻找回本月份。
+        display_low = min(
+            [(0, with_owner.initial_cash)]
+            + [(m.t, m.cash) for m in with_owner.months[:DISPLAY_MONTHS]],
+            key=lambda row: row[1],
+        )
+        cash_low = CashLow(amount=display_low[1], month=display_low[0])
+        need = max(-display_low[1], 0.0)
         funding = [need + months * fixed for months in CUSHION_MONTHS]
     else:
         # 稳定期仍在亏钱：现金会一直减少，准备多少钱都不够

@@ -29,7 +29,7 @@ class ParamValue(BaseModel, Generic[T]):
     悲观指对经营不利的方向：收入类取低值，成本类取高值。
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     base: T
     pessimistic: T | None = None

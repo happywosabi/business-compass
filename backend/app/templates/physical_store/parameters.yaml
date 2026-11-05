@@ -14,6 +14,8 @@
 # quick_required：快速测算的最少必填项（加上档案的"业态"共 8 项）
 # three_tier：建议问出悲观 / 乐观值的参数
 
+version: 1
+
 parameters:
   # ---------------- 启动投入 ----------------
   - key: startup.transfer_fee

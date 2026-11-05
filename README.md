@@ -13,7 +13,8 @@
 - [x] 项目骨架：Docker Compose、FastAPI、PostgreSQL、邮箱注册登录
 - [ ] AI 访谈
 - [x] 前端骨架（`frontend/`）：登录注册、验证邮箱、重置密码、我的、协议页；手机和桌面两套布局
-- [ ] 档案、测算结果、AI 访谈页面
+- [x] 档案、参数编辑、历史测算、现金曲线与临时试算页面
+- [ ] AI 访谈页面
 - [ ] 内容生成
 
 ## 用 Docker 启动
@@ -89,6 +90,8 @@ backend/
   app/engine/         计算引擎
   app/templates/      模板配置（YAML）
   app/auth/           注册、登录、会话
+  app/profiles/       档案、参数、修改记录
+  app/evaluations/    不可变快照与临时试算
   app/mail/           邮件发送
   app/db/             数据库表定义和迁移
   tests/              测试

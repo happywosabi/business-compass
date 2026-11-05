@@ -16,8 +16,10 @@ from app.auth.router import router as auth_router
 from app.auth.service import AuthError
 from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
+from app.evaluations.router import router as evaluations_router
 from app.logs import setup_logging
 from app.mail import MailSender, create_mail_sender
+from app.profiles.router import router as profiles_router
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +69,8 @@ def create_app(settings: Settings | None = None, mail_sender: MailSender | None 
 
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(profiles_router)
+    app.include_router(evaluations_router)
 
     _warn_about_settings(settings)
     return app

@@ -1,16 +1,17 @@
 """数据库表定义。
 
 对应文档：商业档案数据结构 第四节（用户与登录）。
-本阶段只有登录相关的三张表；商业档案等表在后续阶段添加。
+商业档案的工作稿与参数修改记录也在这里定义。
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Text, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, utcnow
@@ -93,3 +94,76 @@ class EmailToken(Base):
         CheckConstraint("purpose IN ('verify_email', 'reset_password')", name="purpose"),
         Index(None, "user_id", "purpose", "created_at"),
     )
+
+
+class Profile(Base):
+    """当前可编辑的商业档案；修改时必须校验 revision。"""
+
+    __tablename__ = "profiles"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(Text)
+    template_key: Mapped[str] = mapped_column(Text, default="physical_store")
+    template_version: Mapped[int] = mapped_column(Integer, default=1)
+    industry: Mapped[str] = mapped_column(Text)
+    city: Mapped[str] = mapped_column(Text)
+    district: Mapped[str | None] = mapped_column(Text)
+    stage: Mapped[str] = mapped_column(Text, default="idea")
+    status: Mapped[str] = mapped_column(Text, default="draft")
+    opened_on: Mapped[date | None] = mapped_column(Date)
+    value_proposition: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    brand_voice: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
+    updated_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
+    deleted_at: Mapped[datetime | None] = _timestamp()
+
+    __table_args__ = (
+        CheckConstraint("stage IN ('idea', 'preparing', 'operating')", name="stage"),
+        CheckConstraint("status IN ('draft', 'active', 'archived')", name="status"),
+        CheckConstraint("revision >= 1", name="revision_positive"),
+        Index(None, "user_id", "deleted_at", "updated_at"),
+    )
+
+
+class ParameterChange(Base):
+    """与参数写入同一事务提交的历史记录。"""
+
+    __tablename__ = "parameter_changes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+    profile_revision: Mapped[int] = mapped_column(Integer)
+    parameter_key: Mapped[str] = mapped_column(Text)
+    old_value: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    new_value: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    source: Mapped[str] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(Text)
+    message_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    experiment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
+
+    __table_args__ = (Index(None, "profile_id", "created_at"),)
+
+
+class Evaluation(Base):
+    """不可变的测算结果与参数副本；仅标签可修改。"""
+
+    __tablename__ = "evaluations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+    profile_revision: Mapped[int] = mapped_column(Integer)
+    trigger: Mapped[str] = mapped_column(Text, default="user_request")
+    label: Mapped[str | None] = mapped_column(Text)
+    template_key: Mapped[str] = mapped_column(Text)
+    template_version: Mapped[int] = mapped_column(Integer)
+    engine_version: Mapped[str] = mapped_column(Text)
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    results: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    summary: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
+
+    __table_args__ = (Index(None, "profile_id", "created_at"),)

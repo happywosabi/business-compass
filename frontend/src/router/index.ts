@@ -42,6 +42,28 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '我的档案', nav: 'home', depth: 1 },
       },
       {
+        path: 'profiles/new',
+        name: 'profile-create',
+        component: () => import('@/pages/profiles/ProfileCreatePage.vue'),
+        meta: { title: '新建档案', nav: 'home', depth: 2 },
+      },
+      {
+        path: 'profiles/:id',
+        name: 'profile-detail',
+        component: () => import('@/pages/profiles/ProfilePage.vue'),
+        meta: { title: '商业档案', nav: 'home', depth: 2 },
+      },
+      {
+        path: 'profiles/:id/results',
+        component: () => import('@/pages/results/ResultHistoryPage.vue'),
+        meta: { title: '历史测算', nav: 'home', depth: 3 },
+      },
+      {
+        path: 'profiles/:id/results/:eid',
+        component: () => import('@/pages/results/ResultPage.vue'),
+        meta: { title: '测算结果', nav: 'home', depth: 3 },
+      },
+      {
         path: 'me',
         name: 'me',
         component: () => import('@/pages/me/MePage.vue'),

@@ -11,13 +11,19 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AnimatedNumber: typeof import('./components/AnimatedNumber.vue')['default']
     AppIcon: typeof import('./components/AppIcon.vue')['default']
     AuthFrame: typeof import('./components/AuthFrame.vue')['default']
+    CashChart: typeof import('./components/CashChart.vue')['default']
     CompassMark: typeof import('./components/CompassMark.vue')['default']
     PageHead: typeof import('./components/PageHead.vue')['default']
+    ParamEditor: typeof import('./components/ParamEditor.vue')['default']
+    ParamRow: typeof import('./components/ParamRow.vue')['default']
     PasswordField: typeof import('./components/PasswordField.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SchemaInput: typeof import('./components/SchemaInput.vue')['default']
+    SourceTag: typeof import('./components/SourceTag.vue')['default']
     VanButton: typeof import('vant/es')['Button']
     VanCell: typeof import('vant/es')['Cell']
     VanCellGroup: typeof import('vant/es')['CellGroup']
@@ -26,5 +32,6 @@ declare module 'vue' {
     VanForm: typeof import('vant/es')['Form']
     VanTabbar: typeof import('vant/es')['Tabbar']
     VanTabbarItem: typeof import('vant/es')['TabbarItem']
+    WhatIfPanel: typeof import('./components/WhatIfPanel.vue')['default']
   }
 }

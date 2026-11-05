@@ -174,16 +174,430 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Templates */
+        get: operations["templates_api_templates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Profiles */
+        get: operations["profiles_api_profiles_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_profiles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["detail_api_profiles__profile_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete */
+        delete: operations["delete_api_profiles__profile_id__delete"];
+        options?: never;
+        head?: never;
+        /** Edit */
+        patch: operations["edit_api_profiles__profile_id__patch"];
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}/parameters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Parameters */
+        patch: operations["parameters_api_profiles__profile_id__parameters_patch"];
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}/defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Defaults */
+        post: operations["defaults_api_profiles__profile_id__defaults_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Changes */
+        get: operations["changes_api_profiles__profile_id__changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy */
+        post: operations["copy_api_profiles__profile_id__copy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore */
+        post: operations["restore_api_profiles__profile_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}/evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History */
+        get: operations["history_api_profiles__profile_id__evaluations_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_profiles__profile_id__evaluations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}/evaluations/{evaluation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["detail_api_profiles__profile_id__evaluations__evaluation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Label */
+        patch: operations["label_api_profiles__profile_id__evaluations__evaluation_id__patch"];
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}/what-if": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["preview_api_profiles__profile_id__what_if_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}/what-if/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply */
+        post: operations["apply_api_profiles__profile_id__what_if_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ApplyWhatIf */
+        ApplyWhatIf: {
+            /** Changes */
+            changes: {
+                [key: string]: unknown;
+            };
+            /**
+             * Evaluation Id
+             * Format: uuid
+             */
+            evaluation_id: string;
+            /** Revision */
+            revision: number;
+        };
+        /** CashLow */
+        CashLow: {
+            /** Amount */
+            amount: number;
+            /** Month */
+            month: number;
+        };
+        /** ChangeOut */
+        ChangeOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Profile Revision */
+            profile_revision: number;
+            /** Parameter Key */
+            parameter_key: string;
+            /** Old Value */
+            old_value: {
+                [key: string]: unknown;
+            } | null;
+            /** New Value */
+            new_value: {
+                [key: string]: unknown;
+            } | null;
+            /** Source */
+            source: string;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
             /** Old Password */
             old_password: string;
             /** New Password */
             new_password: string;
+        };
+        /**
+         * Channel
+         * @description 一个销售渠道，如堂食、外卖、团购。
+         */
+        Channel: {
+            /** Name */
+            name: string;
+            /** Share */
+            share: number;
+            /** Fee Rate */
+            fee_rate: number;
+        };
+        /**
+         * CheckResult
+         * @description 一条合理性检查的结果。
+         */
+        CheckResult: {
+            /** Rule */
+            rule: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "info" | "warning";
+            /** Message */
+            message: string;
+            /** Value */
+            value?: number | null;
+            /** Threshold */
+            threshold?: number | null;
+        };
+        /** DefaultRequest */
+        DefaultRequest: {
+            /** Revision */
+            revision: number;
+            /** Keys */
+            keys: string[];
+        };
+        /** EvaluationCreate */
+        EvaluationCreate: {
+            /** Revision */
+            revision: number;
+            /** Label */
+            label?: string | null;
+        };
+        /** EvaluationLabel */
+        EvaluationLabel: {
+            /** Label */
+            label: string | null;
+        };
+        /** EvaluationOut */
+        EvaluationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Profile Id
+             * Format: uuid
+             */
+            profile_id: string;
+            /** Profile Revision */
+            profile_revision: number;
+            /** Trigger */
+            trigger: string;
+            /** Label */
+            label: string | null;
+            /** Template Key */
+            template_key: string;
+            /** Template Version */
+            template_version: number;
+            /** Engine Version */
+            engine_version: string;
+            parameters: components["schemas"]["PhysicalStoreParams"];
+            results: components["schemas"]["EvaluationResult"];
+            /** Summary */
+            summary: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * EvaluationResult
+         * @description 一次完整评估的结果。
+         */
+        EvaluationResult: {
+            /** Engine Version */
+            engine_version: string;
+            /** Scenarios */
+            scenarios: {
+                [key: string]: components["schemas"]["ScenarioResult"];
+            };
+            /** Thresholds */
+            thresholds: {
+                [key: string]: components["schemas"]["Threshold"];
+            };
+            /** Safety Margin */
+            safety_margin: number | null;
+            /** Sensitivity */
+            sensitivity: components["schemas"]["SensitivityItem"][];
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Default Keys */
+            default_keys: string[];
+        };
+        /** FieldOut */
+        FieldOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "basic" | "product" | "shop" | "costs" | "traffic" | "none";
+            /**
+             * Quick Required
+             * @default false
+             */
+            quick_required: boolean;
+            /**
+             * Three Tier
+             * @default false
+             */
+            three_tier: boolean;
+            /** Ask */
+            ask?: string | null;
+            /** Ask Alternative */
+            ask_alternative?: string | null;
+            /** Ask Range */
+            ask_range?: string | null;
+            /** Value Schema */
+            value_schema: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * FixedCostParams
+         * @description 固定成本（每月不管卖多少都要付）。
+         */
+        FixedCostParams: {
+            rent?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            rent_increase_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            rent_increase_every_years?: components["schemas"]["ParamValue_Annotated_int__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_1_____"] | null;
+            staff?: components["schemas"]["ParamValue_list_StaffItem__"] | null;
+            owner_salary?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            utilities?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            other_fixed?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
         };
         /** ForgotPasswordRequest */
         ForgotPasswordRequest: {
@@ -197,6 +611,13 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** IndustryOut */
+        IndustryOut: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -212,6 +633,384 @@ export interface components {
         MessageOut: {
             /** Message */
             message: string;
+        };
+        /**
+         * MonthRow
+         * @description 逐月数据的一行；t = 0 表示开业前，此时只有现金。
+         */
+        MonthRow: {
+            /** T */
+            t: number;
+            /** Daily Orders */
+            daily_orders: number | null;
+            /** Revenue */
+            revenue: number | null;
+            /** Cash Flow */
+            cash_flow: number | null;
+            /** Cash */
+            cash: number;
+        };
+        /** ParamValue[Annotated[float, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0), Le(le=1)])]] */
+        ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____: {
+            /** Base */
+            base: number;
+            /** Pessimistic */
+            pessimistic?: number | null;
+            /** Optimistic */
+            optimistic?: number | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Annotated[float, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0)])]] */
+        ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____: {
+            /** Base */
+            base: number;
+            /** Pessimistic */
+            pessimistic?: number | null;
+            /** Optimistic */
+            optimistic?: number | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Annotated[float, FieldInfo(annotation=NoneType, required=True, metadata=[Gt(gt=0), Le(le=31)])]] */
+        ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Gt_gt_0___Le_le_31_____: {
+            /** Base */
+            base: number;
+            /** Pessimistic */
+            pessimistic?: number | null;
+            /** Optimistic */
+            optimistic?: number | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Annotated[float, FieldInfo(annotation=NoneType, required=True, metadata=[Gt(gt=0)])]] */
+        ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Gt_gt_0_____: {
+            /** Base */
+            base: number;
+            /** Pessimistic */
+            pessimistic?: number | null;
+            /** Optimistic */
+            optimistic?: number | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Annotated[int, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0)])]] */
+        ParamValue_Annotated_int__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____: {
+            /** Base */
+            base: number;
+            /** Pessimistic */
+            pessimistic?: number | null;
+            /** Optimistic */
+            optimistic?: number | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Annotated[int, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=1), Le(le=12)])]] */
+        ParamValue_Annotated_int__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_1___Le_le_12_____: {
+            /** Base */
+            base: number;
+            /** Pessimistic */
+            pessimistic?: number | null;
+            /** Optimistic */
+            optimistic?: number | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Annotated[int, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=1)])]] */
+        ParamValue_Annotated_int__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_1_____: {
+            /** Base */
+            base: number;
+            /** Pessimistic */
+            pessimistic?: number | null;
+            /** Optimistic */
+            optimistic?: number | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Annotated[list[Annotated[float, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0)])]], AfterValidator]] */
+        ParamValue_Annotated_list_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_______AfterValidator__: {
+            /** Base */
+            base: number[];
+            /** Pessimistic */
+            pessimistic?: number[] | null;
+            /** Optimistic */
+            optimistic?: number[] | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Annotated[list[Channel], AfterValidator]] */
+        ParamValue_Annotated_list_Channel___AfterValidator__: {
+            /** Base */
+            base: components["schemas"]["Channel"][];
+            /** Pessimistic */
+            pessimistic?: components["schemas"]["Channel"][] | null;
+            /** Optimistic */
+            optimistic?: components["schemas"]["Channel"][] | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[Literal['mall', 'street', 'school', 'residential', 'office', 'other']] */
+        ParamValue_Literal__mall____street____school____residential____office____other___: {
+            /**
+             * Base
+             * @enum {string}
+             */
+            base: "mall" | "street" | "school" | "residential" | "office" | "other";
+            /** Pessimistic */
+            pessimistic?: ("mall" | "street" | "school" | "residential" | "office" | "other") | null;
+            /** Optimistic */
+            optimistic?: ("mall" | "street" | "school" | "residential" | "office" | "other") | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[list[Annotated[float, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0), Le(le=2)])]]] */
+        ParamValue_list_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_2______: {
+            /** Base */
+            base: number[];
+            /** Pessimistic */
+            pessimistic?: number[] | null;
+            /** Optimistic */
+            optimistic?: number[] | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParamValue[list[StaffItem]] */
+        ParamValue_list_StaffItem__: {
+            /** Base */
+            base: components["schemas"]["StaffItem"][];
+            /** Pessimistic */
+            pessimistic?: components["schemas"]["StaffItem"][] | null;
+            /** Optimistic */
+            optimistic?: components["schemas"]["StaffItem"][] | null;
+            /**
+             * Source
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "ai_inferred" | "default" | "experiment" | "actual";
+            /** Note */
+            note?: string | null;
+        };
+        /** ParametersUpdate */
+        ParametersUpdate: {
+            /** Revision */
+            revision: number;
+            /** Changes */
+            changes: {
+                [key: string]: unknown;
+            };
+            /** Reason */
+            reason?: string | null;
+        };
+        /** PaybackRange */
+        PaybackRange: {
+            /** Pessimistic */
+            pessimistic: number | null;
+            /** Base */
+            base: number | null;
+            /** Optimistic */
+            optimistic: number | null;
+        };
+        /**
+         * PhysicalStoreParams
+         * @description 实体小店的全部测算参数（档案里的 parameters 字段）。
+         *
+         *     参数可以逐步填写，所以每一项都允许为空；测算前用 missing_keys() 检查是否齐全。
+         */
+        PhysicalStoreParams: {
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            startup?: components["schemas"]["StartupParams"];
+            revenue?: components["schemas"]["RevenueParams"];
+            variable_cost?: components["schemas"]["VariableCostParams"];
+            fixed_cost?: components["schemas"]["FixedCostParams"];
+            store?: components["schemas"]["StoreParams"];
+            /** Traffic Estimates */
+            traffic_estimates?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** ProfileCopy */
+        ProfileCopy: {
+            /** Revision */
+            revision: number;
+            /** Name */
+            name?: string | null;
+        };
+        /** ProfileCreate */
+        ProfileCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Industry
+             * @default drinks
+             */
+            industry: string;
+            /**
+             * Template Key
+             * @default physical_store
+             * @constant
+             */
+            template_key: "physical_store";
+            /** City */
+            city: string;
+            /** District */
+            district?: string | null;
+            /**
+             * Stage
+             * @default idea
+             * @enum {string}
+             */
+            stage: "idea" | "preparing" | "operating";
+            /** Opened On */
+            opened_on?: string | null;
+            parameters?: components["schemas"]["PhysicalStoreParams"];
+        };
+        /** ProfileOut */
+        ProfileOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Template Key */
+            template_key: string;
+            /** Template Version */
+            template_version: number;
+            /** Industry */
+            industry: string;
+            /** City */
+            city: string;
+            /** District */
+            district: string | null;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "idea" | "preparing" | "operating";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active" | "archived";
+            /** Opened On */
+            opened_on: string | null;
+            /** Value Proposition */
+            value_proposition: {
+                [key: string]: unknown;
+            };
+            parameters: components["schemas"]["PhysicalStoreParams"];
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Quick Missing */
+            quick_missing: string[];
+            /** Derived Stale Keys */
+            derived_stale_keys: string[];
+        };
+        /** ProfileUpdate */
+        ProfileUpdate: {
+            /** Revision */
+            revision: number;
+            /** Name */
+            name?: string | null;
+            /** City */
+            city?: string | null;
+            /** District */
+            district?: string | null;
+            /** Stage */
+            stage?: ("idea" | "preparing" | "operating") | null;
+            /** Status */
+            status?: ("draft" | "active" | "archived") | null;
+            /** Opened On */
+            opened_on?: string | null;
+            /** Value Proposition */
+            value_proposition?: {
+                [key: string]: string;
+            } | null;
         };
         /** RegisterRequest */
         RegisterRequest: {
@@ -229,6 +1028,171 @@ export interface components {
             token: string;
             /** New Password */
             new_password: string;
+        };
+        /**
+         * RevenueParams
+         * @description 收入。
+         */
+        RevenueParams: {
+            daily_orders?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Gt_gt_0_____"] | null;
+            avg_ticket?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Gt_gt_0_____"] | null;
+            open_days?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Gt_gt_0___Le_le_31_____"] | null;
+            channels?: components["schemas"]["ParamValue_Annotated_list_Channel___AfterValidator__"] | null;
+            opening_month?: components["schemas"]["ParamValue_Annotated_int__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_1___Le_le_12_____"] | null;
+            ramp?: components["schemas"]["ParamValue_list_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_2______"] | null;
+            seasonality?: components["schemas"]["ParamValue_Annotated_list_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_______AfterValidator__"] | null;
+        };
+        /** RevisionBody */
+        RevisionBody: {
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * ScenarioResult
+         * @description 一个情景的测算结果。
+         */
+        ScenarioResult: {
+            startup: components["schemas"]["StartupSummary"];
+            /** Fee Rate */
+            fee_rate: number;
+            /** Unit Margin */
+            unit_margin: number;
+            /** Steady Monthly Revenue */
+            steady_monthly_revenue: number;
+            /** Steady Fixed Cost */
+            steady_fixed_cost: number;
+            /** Steady Monthly Cash */
+            steady_monthly_cash: number;
+            /** Steady Monthly Cash Excl Owner */
+            steady_monthly_cash_excl_owner: number;
+            /** First Profitable Month */
+            first_profitable_month: number | null;
+            /** First Profitable Month Excl Owner */
+            first_profitable_month_excl_owner: number | null;
+            cash_low: components["schemas"]["CashLow"] | null;
+            /** Suggested Funding */
+            suggested_funding: number[] | null;
+            /** Payback Month */
+            payback_month: number | null;
+            /** Payback Month Excl Owner */
+            payback_month_excl_owner: number | null;
+            /** Lease Months */
+            lease_months: number;
+            /**
+             * Lease Check
+             * @enum {string}
+             */
+            lease_check: "pass" | "fail";
+            /** Cash At Month 36 */
+            cash_at_month_36: number;
+            /** Monthly */
+            monthly: components["schemas"]["MonthRow"][];
+        };
+        /**
+         * SensitivityItem
+         * @description 一个参数的敏感性：只让它取悲观 / 乐观值，其他参数保持中性。
+         */
+        SensitivityItem: {
+            /** Key */
+            key: string;
+            cash_at_month_36: components["schemas"]["TierValues"];
+            /** Downside */
+            downside: number;
+            /** Swing */
+            swing: number;
+            payback_month: components["schemas"]["PaybackRange"];
+        };
+        /**
+         * StaffItem
+         * @description 一类员工。
+         */
+        StaffItem: {
+            /** Role */
+            role: string;
+            /** Count */
+            count: number;
+            /** Monthly Cost */
+            monthly_cost: number;
+        };
+        /**
+         * StartupParams
+         * @description 启动投入（开业前一次性支出）。
+         */
+        StartupParams: {
+            transfer_fee?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            renovation?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            equipment?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            licenses?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            opening_marketing?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            renovation_months?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            rent_free_months?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            deposit_months?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            initial_stock?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+        };
+        /** StartupSummary */
+        StartupSummary: {
+            /** Sunk */
+            sunk: number;
+            /** Recoverable */
+            recoverable: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * StoreParams
+         * @description 门店。
+         */
+        StoreParams: {
+            location_type?: components["schemas"]["ParamValue_Literal__mall____street____school____residential____office____other___"] | null;
+            area_sqm?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Gt_gt_0_____"] | null;
+            seats?: components["schemas"]["ParamValue_Annotated_int__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            turns_per_day?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            delivery_capacity?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            lease_months?: components["schemas"]["ParamValue_Annotated_int__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_1_____"] | null;
+        };
+        /** TemplateOut */
+        TemplateOut: {
+            /** Key */
+            key: string;
+            /** Version */
+            version: number;
+            /** Label */
+            label: string;
+            /** Industries */
+            industries: components["schemas"]["IndustryOut"][];
+            /** Fields */
+            fields: components["schemas"]["FieldOut"][];
+            /** Definitions */
+            definitions: {
+                [key: string]: unknown;
+            };
+            /**
+             * Defaults Provisional
+             * @default true
+             */
+            defaults_provisional: boolean;
+        };
+        /**
+         * Threshold
+         * @description 单变量临界值。value 为 None 表示不存在（如每单都亏钱时，卖多少都不能保本）。
+         */
+        Threshold: {
+            /** Value */
+            value: number | null;
+            /** Headroom */
+            headroom: number | null;
+        };
+        /**
+         * TierValues
+         * @description 悲观 / 中性 / 乐观三档数值。
+         */
+        TierValues: {
+            /** Pessimistic */
+            pessimistic: number;
+            /** Base */
+            base: number;
+            /** Optimistic */
+            optimistic: number;
         };
         /** TokenRequest */
         TokenRequest: {
@@ -266,6 +1230,36 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * VariableCostParams
+         * @description 变动成本（卖得越多花得越多）。
+         */
+        VariableCostParams: {
+            unit_cost?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0_____"] | null;
+            payment_fee_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            tax_rate?: components["schemas"]["ParamValue_Annotated_float__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+        };
+        /** WhatIfRequest */
+        WhatIfRequest: {
+            /** Changes */
+            changes: {
+                [key: string]: unknown;
+            };
+            /** Evaluation Id */
+            evaluation_id?: string | null;
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * WhatIfResult
+         * @description 假设性测算：修改前后中性情景的对比，不保存。
+         */
+        WhatIfResult: {
+            /** Changed Keys */
+            changed_keys: string[];
+            before: components["schemas"]["ScenarioResult"];
+            after: components["schemas"]["ScenarioResult"];
         };
     };
     responses: never;
@@ -541,6 +1535,568 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    templates_api_templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateOut"][];
+                };
+            };
+        };
+    };
+    profiles_api_profiles_get: {
+        parameters: {
+            query?: {
+                view?: "active" | "archived" | "deleted";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_profiles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detail_api_profiles__profile_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_api_profiles__profile_id__delete: {
+        parameters: {
+            query: {
+                revision: number;
+            };
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_api_profiles__profile_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    parameters_api_profiles__profile_id__parameters_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParametersUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    defaults_api_profiles__profile_id__defaults_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefaultRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    changes_api_profiles__profile_id__changes_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copy_api_profiles__profile_id__copy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileCopy"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_api_profiles__profile_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    history_api_profiles__profile_id__evaluations_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_profiles__profile_id__evaluations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvaluationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detail_api_profiles__profile_id__evaluations__evaluation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+                evaluation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    label_api_profiles__profile_id__evaluations__evaluation_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+                evaluation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvaluationLabel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_profiles__profile_id__what_if_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatIfRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatIfResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_api_profiles__profile_id__what_if_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyWhatIf"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationOut"];
                 };
             };
             /** @description Validation Error */

@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -66,6 +67,7 @@ class Template:
         specs: list[ParamSpec],
         industries: dict[str, IndustryDefaults],
         checks: dict[str, CheckRules],
+        version: int = 1,
     ):
         spec_keys = [s.key for s in specs]
         if sorted(spec_keys) != sorted(ALL_KEYS):
@@ -80,6 +82,7 @@ class Template:
             raise ValueError("defaults.yaml 与 checks.yaml 的业态列表不一致")
 
         self.key = key
+        self.version = version
         self.specs = {s.key: s for s in specs}
         self._industries = industries
         self._checks = checks
@@ -133,7 +136,7 @@ class Template:
                 label = self.specs[rule.ratio_of].label
                 note = note or f"按{label}的 {rule.ratio:.0%} 估算（{config.label}默认值，待核实）"
             elif key == "revenue.opening_month":
-                current = (today or date.today()).month
+                current = (today or datetime.now(ZoneInfo("Asia/Shanghai")).date()).month
                 value = {"base": (current + 1) % 12 + 1}
                 note = note or "按当前日期推后两个月估算"
             else:
@@ -154,10 +157,8 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 def load_template(key: str = "physical_store") -> Template:
     """读取模板配置。结果会被缓存，修改 YAML 后需要重启程序。"""
     folder = TEMPLATES_DIR / key
-    specs = [
-        ParamSpec.model_validate(item)
-        for item in _read_yaml(folder / "parameters.yaml")["parameters"]
-    ]
+    metadata = _read_yaml(folder / "parameters.yaml")
+    specs = [ParamSpec.model_validate(item) for item in metadata["parameters"]]
     industries = {
         code: IndustryDefaults.model_validate(item)
         for code, item in _read_yaml(folder / "defaults.yaml")["industries"].items()
@@ -166,4 +167,4 @@ def load_template(key: str = "physical_store") -> Template:
         code: CheckRules.model_validate(item)
         for code, item in _read_yaml(folder / "checks.yaml")["industries"].items()
     }
-    return Template(key, specs, industries, checks)
+    return Template(key, specs, industries, checks, version=metadata["version"])
