@@ -36,7 +36,11 @@ async def test_collection_filters_deduplicates_updates_rank_and_falls_back_witho
         httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler))
     )
     settings = app.state.settings.model_copy(
-        update={"hotapi_base_url": "https://hot.example.com", "hotapi_channels": "weibo"}
+        update={
+            "content_news_enabled": False,
+            "hotapi_base_url": "https://hot.example.com",
+            "hotapi_channels": "weibo",
+        }
     )
     assert (
         await collect(

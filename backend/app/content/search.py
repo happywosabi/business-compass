@@ -1,29 +1,68 @@
-"""限定端点的在线资讯检索；只读取 RSS 摘要，不访问模型或用户提供的网址。"""
+"""固定公开 RSS 来源；只读取摘要，不访问模型、用户或来源提供的网址。"""
 
+import asyncio
 import html
+import ipaddress
+import logging
 import re
-import xml.etree.ElementTree as ET
-from datetime import UTC, timedelta
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from urllib.parse import parse_qs, urlparse
+from zoneinfo import ZoneInfo
 
 import httpx
+from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
 
 from app.db.base import utcnow
 
-NEWS_ENDPOINT = "https://www.bing.com/news/search"
-MAX_BYTES = 1_000_000
+from .fetch import SourceFailure, read_source
+
+logger = logging.getLogger(__name__)
+
+# 固定 HTTPS 端点，不接受请求参数、模型输出或 RSS 链接指定新的抓取地址。
+NEWS_FEEDS = (
+    ("chinanews_life", "https://www.chinanews.com.cn/rss/life.xml", "中新网·生活"),
+    ("chinanews_finance", "https://www.chinanews.com.cn/rss/finance.xml", "中新网·财经"),
+    ("chinanews_latest", "https://www.chinanews.com.cn/rss/scroll-news.xml", "中新网·即时"),
+    ("foodmate", "https://news.foodmate.net/rss.php", "食品伙伴网"),
+)
+
+
+@dataclass
+class NewsBatch:
+    rows: list[dict]
+    sources: list[dict]
+
+
+class NewsUnavailable(ValueError):
+    pass
 
 
 def safe_url(url: str | None) -> bool:
     try:
+        if not isinstance(url, str) or len(url) > 2048 or re.search(r"[\s\\\x00-\x1f\x7f]", url):
+            return False
         parsed = urlparse(str(url))
-        return (
+        valid = (
             parsed.scheme in {"http", "https"}
             and bool(parsed.hostname)
             and not parsed.username
             and not parsed.password
+            and parsed.port in {None, 80, 443}
         )
+        if not valid:
+            return False
+        host = parsed.hostname.rstrip(".").lower()
+        try:
+            return ipaddress.ip_address(host).is_global
+        except ValueError:
+            return bool(re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", host)) and (
+                "." in host
+                and not host.split(".")[-1].isdigit()
+                and not host.endswith((".localhost", ".local", ".internal"))
+            )
     except ValueError:
         return False
 
@@ -33,44 +72,36 @@ def plain(value: str, limit: int = 1000) -> str:
 
 
 def article_url(link: str) -> str:
-    parsed = urlparse(link)
+    try:
+        parsed = urlparse(link)
+    except ValueError:
+        return ""
     if parsed.hostname in {"www.bing.com", "bing.com"} and parsed.path == "/news/apiclick.aspx":
         link = parse_qs(parsed.query).get("url", [link])[0]
     return link if safe_url(link) else ""
 
 
-async def search_news(query: str) -> list[dict]:
-    # 固定公共搜索端点，不跟随重定向；链接仅用于来源展示，不在服务器抓取。
-    async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
-        async with client.stream(
-            "GET",
-            NEWS_ENDPOINT,
-            params={
-                "q": query[:250],
-                "format": "rss",
-                "setlang": "zh-cn",
-                "qft": 'interval="7"',
-            },
-            headers={"User-Agent": "BusinessCompass/1.0"},
-        ) as response:
-            response.raise_for_status()
-            body = bytearray()
-            async for chunk in response.aiter_bytes():
-                body.extend(chunk)
-                if len(body) > MAX_BYTES:
-                    raise ValueError("资讯响应过大")
-    if b"<!DOCTYPE" in body.upper() or b"<!ENTITY" in body.upper():
-        raise ValueError("不支持的资讯格式")
-    root = ET.fromstring(body)
+def parse_feed(body: bytes, publisher: str) -> list[dict]:
+    try:
+        root = ET.fromstring(body, forbid_dtd=True, forbid_entities=True, forbid_external=True)
+    except (ET.ParseError, DefusedXmlException, ValueError, LookupError) as error:
+        raise SourceFailure("format_error") from error
+    if root.tag != "rss" or root.find("channel") is None:
+        raise SourceFailure("format_error")
     now, rows = utcnow(), []
     for item in root.findall(".//item")[:50]:
         title = plain(item.findtext("title", ""), 250)
         link = article_url(item.findtext("link", ""))
         try:
-            published = parsedate_to_datetime(item.findtext("pubDate", ""))
+            date = item.findtext("pubDate", "").strip()
+            try:
+                published = parsedate_to_datetime(date)
+            except (ValueError, TypeError):
+                published = datetime.fromisoformat(date)
             if published.tzinfo is None:
-                published = published.replace(tzinfo=UTC)
-        except (ValueError, TypeError, IndexError):
+                published = published.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+            published = published.astimezone(UTC)
+        except (ValueError, TypeError, IndexError, OverflowError):
             continue
         if (
             not title
@@ -78,7 +109,6 @@ async def search_news(query: str) -> list[dict]:
             or not now - timedelta(days=7) <= published <= now + timedelta(hours=1)
         ):
             continue
-        publisher = next((el.text for el in item if el.tag.endswith("}Source")), "必应资讯")
         rows.append(
             {
                 "title": title,
@@ -86,11 +116,46 @@ async def search_news(query: str) -> list[dict]:
                 "excerpt": plain(item.findtext("description", "")),
                 "published_at": published.isoformat(),
                 "retrieved_at": now.isoformat(),
-                "publisher": plain(publisher or "必应资讯", 100),
+                "publisher": publisher,
                 "kind": "news_summary",
             }
         )
     return rows
+
+
+async def load_news() -> NewsBatch:
+    async with httpx.AsyncClient(timeout=10, follow_redirects=False, trust_env=False) as client:
+
+        async def one(source: str, url: str, publisher: str):
+            try:
+                rows = parse_feed(await read_source(client, url), publisher)
+                return rows, {"source": source, "status": "ok", "items": len(rows)}
+            except SourceFailure as error:
+                diagnostic = {"source": source, "status": error.code}
+                if error.http_status is not None:
+                    diagnostic["http_status"] = error.http_status
+                logger.warning("News source unavailable: %s %s", source, error.code)
+                return [], diagnostic
+
+        results = await asyncio.gather(*(one(*feed) for feed in NEWS_FEEDS))
+    rows = {row["url"]: row for group, _ in results for row in group}
+    return NewsBatch(
+        sorted(rows.values(), key=lambda row: row["published_at"], reverse=True),
+        [diagnostic for _, diagnostic in results],
+    )
+
+
+async def search_news(query: str) -> list[dict]:
+    batch = await load_news()
+    if not any(source["status"] == "ok" for source in batch.sources):
+        raise NewsUnavailable("资讯来源均不可用")
+    words = [word for word in query[:250].split() if word]
+    return [
+        row
+        for row in batch.rows
+        if any(word in row["title"] + row["excerpt"] for word in words)
+        or related(query, row["title"])
+    ][:30]
 
 
 def related(title: str, other: str) -> bool:

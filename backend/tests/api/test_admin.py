@@ -276,6 +276,18 @@ async def test_audit_time_range_and_collection_history(client, db, admin):
                 embedding_model="fake-embedding",
                 input_tokens=i,
                 error="PRIVATE_PROVIDER_ERROR",
+                diagnostics={
+                    "stage": "sources",
+                    "sources": [
+                        {
+                            "source": "foodmate",
+                            "status": "http_error",
+                            "http_status": 503,
+                            "body": "PRIVATE_PROVIDER_ERROR",
+                            "url": "PRIVATE_PROVIDER_ERROR",
+                        }
+                    ],
+                },
                 created_at=start,
             )
         )
@@ -295,6 +307,10 @@ async def test_audit_time_range_and_collection_history(client, db, admin):
     assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
     assert "PRIVATE_PROVIDER_ERROR" not in response.text
     rows = response.json()["items"]
+    assert rows[0]["diagnostics"]["sources"] == [
+        {"source": "foodmate", "status": "http_error", "http_status": 503}
+    ]
+    assert "资讯来源读取失败" in rows[0]["error"]
     assert len(rows) == 2 and response.json()["next_cursor"]
     response = await client.get(
         "/api/admin/collections", params={"limit": 2, "cursor": response.json()["next_cursor"]}

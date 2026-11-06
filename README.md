@@ -120,7 +120,7 @@ compose.yaml          Docker Compose
 
 访谈使用 `record_periodic_value` 由代码换算日/月/年单位，日薪和月销量需先确认工作/营业天数。亲属报酬与老板工资分别记录。文案提示词见 `backend/app/content/prompt.md`：小红书采用标题、短段、适量emoji和话题；关键信息缺失时保留最多3个 `【待填：…】`，在页面填入或删行后复制。
 
-内容页在 `/content`。可选热点接入需配置自部署 DailyHotApi 的 `HOTAPI_BASE_URL`，worker 每两小时读取；未配置时仍能使用日历和门店日常选题。热点仅使用聚合源实际返回的标题，向量服务用于近似去重。
+内容页在 `/content`。默认由 worker 每两小时读取固定的中新网/食品伙伴网公开 RSS，筛选近期行业资讯；可用 `HOTAPI_BASE_URL` 叠加运维配置的自部署 DailyHotApi。来源失败不影响日历和日常选题。采集遵守公共预算，页面刷新只读缓存，后台展示来源诊断；详情见[热点关联与联网检索](docs/热点关联与联网检索.md)。
 
 ## 备份与恢复验证
 

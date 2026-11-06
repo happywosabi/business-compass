@@ -9,7 +9,7 @@ import httpx
 import pytest
 from sqlalchemy import select, update
 
-from app.content import hot, search
+from app.content import fetch, hot, search
 from app.db.base import utcnow
 from app.db.models import AIRun, HotTopic, User
 
@@ -65,13 +65,14 @@ async def test_online_search_reads_real_response_filters_dates_and_never_follows
     assert len(result) == 1
     assert result[0]["excerpt"] == "真实摘要"
     assert result[0]["url"] == "https://example.com/article"
-    assert len(requests) == 1 and requests[0].url.host == "www.bing.com"
-    assert requests[0].url.params["q"] == "咖啡"
+    assert len(requests) == len(search.NEWS_FEEDS)
+    assert {str(r.url) for r in requests} == {feed[1] for feed in search.NEWS_FEEDS}
+    assert all(not r.url.query for r in requests)
 
 
 async def test_online_search_rejects_entities_and_oversized_response(monkeypatch):
     real_client = httpx.AsyncClient
-    for body in ['<!DOCTYPE rss [<!ENTITY a "x">]><rss/>', "a" * (search.MAX_BYTES + 1)]:
+    for body in ['<!DOCTYPE rss [<!ENTITY a "x">]><rss/>', "a" * (fetch.MAX_BYTES + 1)]:
         monkeypatch.setattr(
             httpx,
             "AsyncClient",
@@ -219,7 +220,12 @@ async def test_collection_partial_failure_summary_provenance_and_template_matchi
     async def no_vectors(*args):
         return [None]
 
-    monkeypatch.setattr(hot, "search_news", results)
+    async def batch():
+        return search.NewsBatch(
+            await results("水果"), [{"source": "chinanews_life", "status": "ok", "items": 1}]
+        )
+
+    monkeypatch.setattr(hot, "load_news", batch)
     monkeypatch.setattr(hot, "embed", no_vectors)
     provider = FakeLLM([{"role": "assistant", "content": '{"approved":[0]}'}])
     settings = app.state.settings.model_copy(update={"hotapi_base_url": ""})

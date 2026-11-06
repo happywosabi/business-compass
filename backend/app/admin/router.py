@@ -11,6 +11,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import defer, load_only
 
 from app.auth.dependencies import CurrentSessionDep
+from app.content.diagnostics import collection_error, public_diagnostics
 from app.db.base import utcnow
 from app.db.models import (
     AdminAudit,
@@ -568,7 +569,8 @@ async def collections(db: DB, admin: Admin, cursor: str | None = None, limit: in
                 "created_at",
                 "finished_at",
             ),
-            "error": "采集未完成，请检查来源和服务配置" if row.error else None,
+            "error": collection_error(row),
+            "diagnostics": public_diagnostics(row.diagnostics),
         },
     )
 

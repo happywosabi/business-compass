@@ -1,4 +1,4 @@
-"""在线行业资讯与可选 DailyHotApi；模型只筛选，来源摘要原样保存。"""
+"""固定 RSS 与可选 DailyHotApi；模型只筛选，保留来源摘要与时间。"""
 
 import asyncio
 import hashlib
@@ -9,21 +9,31 @@ import re
 from datetime import timedelta
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 from sqlalchemy import func, select, text, update
 
 from app.db.base import utcnow
 from app.db.models import HotCollectionRun, HotTopic
 
-from .search import safe_url, search_news
+from .diagnostics import public_diagnostics
+from .fetch import SourceFailure, read_source
+from .search import load_news, safe_url
 
 logger = logging.getLogger(__name__)
 
 BLOCK = re.compile(
     "地震|洪水|灾|遇难|死亡|事故|战争|袭击|自杀|性侵|爆炸|疫情|抗议|政治|选举|暴力|儿童伤害"
+    "|疾病|糖尿病|药物|医疗|治病|疗效|抗氧化|中毒|召回|抽检|不合格|隐患|风险警示"
+    "|食品安全|市场监管|违规|整治|葡萄糖苷酶"
 )
 STORE = re.compile("奶茶|饮品|咖啡|茶饮|甜品|餐饮|美食|口味|烘焙|冰淇淋|散步|城市漫步|生活方式")
 ORCHARD = re.compile("水果|果园|果农|果品|采摘|柑橘|柚|橙|苹果|荔枝|龙眼|葡萄|猕猴桃|草莓")
 RELEVANT = re.compile(STORE.pattern + "|" + ORCHARD.pattern)
+
+
+class Approval(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    approved: list[StrictInt] = Field(max_length=30)
 
 
 def fingerprint(title):
@@ -84,13 +94,17 @@ async def collect(factory, settings, provider, *, force=False):
                 .values(status="failed", error="interrupted", finished_at=utcnow())
             )
             run = HotCollectionRun(
-                model=settings.interview_model, embedding_model=settings.embedding_model
+                model=settings.interview_model,
+                embedding_model=settings.embedding_model,
+                diagnostics={"stage": "sources"},
             )
             db.add(run)
             await db.commit()
             run_id = run.id
 
         async def record(**values):
+            if "diagnostics" in values:
+                values["diagnostics"] = public_diagnostics(values["diagnostics"])
             async with factory() as db:
                 await db.execute(
                     update(HotCollectionRun).where(HotCollectionRun.id == run_id).values(**values)
@@ -109,47 +123,47 @@ async def collect(factory, settings, provider, *, force=False):
 
 async def _collect(factory, settings, provider, record):
     candidates, succeeded = [], False
+    diagnostics = {"stage": "sources", "sources": [], "candidates": 0, "approved": 0, "added": 0}
     if settings.content_news_enabled:
-        groups = [
-            ("news_store", "奶茶 新品 点单"),
-            ("news_store", "咖啡 城市漫步"),
-            ("news_orchard", "水果 果园 采摘"),
-        ]
-        results = await asyncio.gather(
-            *(search_news(query) for _, query in groups), return_exceptions=True
-        )
-        for (channel, _), result in zip(groups, results, strict=True):
-            if isinstance(result, Exception):
-                logger.warning("News collection unavailable: %s", type(result).__name__)
-                continue
-            succeeded = True
-            for rank, source in enumerate(result, 1):
-                if RELEVANT.search(source["title"]) and not BLOCK.search(
-                    source["title"] + source["excerpt"]
-                ):
-                    candidates.append(
-                        {
-                            "title": source["title"],
-                            "url": source["url"],
-                            "rank": rank,
-                            "channel": channel,
-                            "sources": [source],
-                        }
-                    )
+        batch = await load_news()
+        diagnostics["sources"] = batch.sources
+        succeeded = any(source["status"] == "ok" for source in batch.sources)
+        for rank, source in enumerate(batch.rows, 1):
+            if RELEVANT.search(source["title"]) and not BLOCK.search(
+                source["title"] + source["excerpt"]
+            ):
+                candidates.append(
+                    {
+                        "title": source["title"],
+                        "url": source["url"],
+                        "rank": rank,
+                        "channel": "news_orchard"
+                        if ORCHARD.search(source["title"])
+                        else "news_store",
+                        "sources": [source],
+                    }
+                )
     if settings.hotapi_base_url:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
-            for channel in settings.hotapi_channels.split(","):
+        async with httpx.AsyncClient(timeout=10, follow_redirects=False, trust_env=False) as client:
+            for channel in settings.hotapi_channels.split(",")[:8]:
                 channel = channel.strip()
                 if not re.fullmatch(r"[a-z0-9_-]+", channel):
                     continue
                 try:
-                    response = await client.get(
-                        settings.hotapi_base_url.rstrip("/") + "/" + channel
+                    body = await read_source(
+                        client, settings.hotapi_base_url.rstrip("/") + "/" + channel
                     )
-                    response.raise_for_status()
-                    rows = response.json().get("data", [])[:50]
+                    payload = json.loads(body)
+                    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+                        raise ValueError("invalid hot feed")
+                    rows = payload["data"][:50]
                     succeeded = True
+                    diagnostics["sources"].append(
+                        {"source": "dailyhot", "status": "ok", "items": len(rows)}
+                    )
                     for rank, row in enumerate(rows, 1):
+                        if not isinstance(row, dict):
+                            continue
                         title = str(row.get("title", ""))[:250]
                         url = row.get("url") or row.get("mobileUrl")
                         if (
@@ -167,15 +181,29 @@ async def _collect(factory, settings, provider, record):
                                     "sources": [],
                                 }
                             )
-                except (httpx.HTTPError, ValueError, TypeError):
-                    logger.warning("Hot channel unavailable: %s", channel)
+                except (ValueError, TypeError) as error:
+                    diagnostic = {
+                        "source": "dailyhot",
+                        "status": error.code
+                        if isinstance(error, SourceFailure)
+                        else "format_error",
+                    }
+                    if isinstance(error, SourceFailure) and error.http_status is not None:
+                        diagnostic["http_status"] = error.http_status
+                    diagnostics["sources"].append(diagnostic)
+                    logger.warning("Hot channel unavailable: %s", diagnostic["status"])
+    candidates = list({fingerprint(c["title"]): c for c in candidates}.values())[:30]
+    diagnostics["candidates"] = len(candidates)
+    await record(diagnostics=dict(diagnostics))
     if not succeeded and (settings.content_news_enabled or settings.hotapi_base_url):
         raise ValueError("热点来源暂不可用")
-    candidates = list({fingerprint(c["title"]): c for c in candidates}.values())[:30]
     if not candidates:
+        diagnostics["stage"] = "completed"
+        await record(diagnostics=dict(diagnostics))
         return 0
     # 无分类服务则不发布热点；固定日历始终可用。
-    await record(llm_calls=1)
+    diagnostics["stage"] = "classification"
+    await record(llm_calls=1, diagnostics=dict(diagnostics))
     message, usage = await provider.complete(
         [
             {
@@ -206,14 +234,21 @@ async def _collect(factory, settings, provider, record):
     raw = (message.get("content") or "").strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw)
-    approved = json.loads(raw).get("approved", [])
+    approved = Approval.model_validate_json(raw).approved
+    if any(index < 0 or index >= len(candidates) for index in approved):
+        raise ValueError("invalid approved indexes")
     selected = [c for i, c in enumerate(candidates) if i in approved]
+    diagnostics.update(stage="embedding", approved=len(selected))
+    await record(diagnostics=dict(diagnostics))
     try:
         vectors = await embed(settings, [c["title"] for c in selected], record)
     except (httpx.HTTPError, ValueError, KeyError):
         logger.warning("Embedding unavailable; falling back to title deduplication")
         vectors = [None] * len(selected)
+        diagnostics["embedding_fallback"] = True
     added = 0
+    diagnostics["stage"] = "publishing"
+    await record(diagnostics=dict(diagnostics))
     async with factory() as db:
         recent = list(
             await db.scalars(
@@ -240,6 +275,8 @@ async def _collect(factory, settings, provider, record):
             recent.append(item)
             added += 1
         await db.commit()
+    diagnostics.update(stage="completed", added=added)
+    await record(diagnostics=dict(diagnostics))
     return added
 
 

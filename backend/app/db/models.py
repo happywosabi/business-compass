@@ -305,6 +305,7 @@ class HotCollectionRun(Base):
     llm_calls: Mapped[int] = mapped_column(Integer, default=0)
     embedding_calls: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(Text)
+    diagnostics: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
     created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
     finished_at: Mapped[datetime | None] = _timestamp()
 
