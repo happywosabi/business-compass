@@ -14,7 +14,7 @@ from app.deps import DB
 
 
 async def management_lock(db):
-    await db.execute(text("SELECT pg_advisory_xact_lock(9412272)"))
+    await db.execute(text("SELECT pg_advisory_xact_lock(9412290)"))
 
 
 def audit(db, request, actor_id, action, target, reason, changes=None, result="success"):

@@ -287,3 +287,12 @@ async def test_disabling_account_prevents_inflight_content_commit(
     )
     run = await db.get(AIRun, draft.run_id)
     assert run.status == "cancelled" and draft.content is None
+
+
+async def test_admin_operations_do_not_share_public_collection_lock(client, db, admin):
+    from sqlalchemy import text
+
+    await db.execute(text("SELECT pg_advisory_xact_lock(9412272)"))
+    response = await unlock(client)
+    assert response.status_code == 200
+    await db.rollback()
