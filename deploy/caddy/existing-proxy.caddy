@@ -1,0 +1,10 @@
+# 在已有Caddyfile末尾import本文件；先validate，再reload，不重启其他服务。
+# 安装时将{$APP_DOMAIN}替换为实际域名；宿主机systemd不读取项目.env。
+{$APP_DOMAIN} {
+	header Strict-Transport-Security "max-age=31536000"
+	header >Referrer-Policy "no-referrer"
+	reverse_proxy 127.0.0.1:18080 {
+		header_up X-Real-IP {remote_host}
+		flush_interval -1
+	}
+}

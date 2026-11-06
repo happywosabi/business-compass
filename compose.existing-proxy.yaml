@@ -1,0 +1,48 @@
+# 已有宿主机HTTPS代理：仅启动本项目容器，不接管80/443。
+# docker compose -f compose.yaml -f compose.existing-proxy.yaml up -d --no-build
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    mem_limit: 256m
+    cpus: 0.4
+    pids_limit: 128
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=60", "-c", "work_mem=2MB"]
+    logging: &logs
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+  api:
+    image: business-compass-api:${RELEASE_TAG:?请设置镜像版本RELEASE_TAG}
+    environment:
+      APP_ENV: production
+      APP_BASE_URL: https://${APP_DOMAIN:?请设置APP_DOMAIN}
+      SESSION_COOKIE_SECURE: "true"
+    mem_limit: 512m
+    cpus: 0.75
+    pids_limit: 128
+    logging: *logs
+  worker:
+    image: business-compass-api:${RELEASE_TAG:?请设置镜像版本RELEASE_TAG}
+    environment:
+      APP_ENV: production
+      APP_BASE_URL: https://${APP_DOMAIN:?请设置APP_DOMAIN}
+      SESSION_COOKIE_SECURE: "true"
+    mem_limit: 192m
+    cpus: 0.25
+    pids_limit: 64
+    logging: *logs
+  nginx:
+    image: business-compass-nginx:${RELEASE_TAG:?请设置镜像版本RELEASE_TAG}
+    volumes:
+      - ./deploy/nginx/trusted-host.conf:/etc/nginx/proxy-trust/host.conf:ro
+    mem_limit: 64m
+    cpus: 0.15
+    pids_limit: 64
+    logging: *logs
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.42.0/24
+          gateway: 172.30.42.1
