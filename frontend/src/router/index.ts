@@ -30,6 +30,15 @@ const routes: RouteRecordRaw[] = [
   { path: '/terms', name: 'terms', component: LegalPage, props: { doc: 'terms' }, meta: { title: '用户协议' } },
   { path: '/privacy', name: 'privacy', component: LegalPage, props: { doc: 'privacy' }, meta: { title: '隐私政策' } },
   {
+    path: '/admin',
+    component: () => import('@/layouts/AdminLayout.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '管理工作台' },
+    children: [
+      { path: '', component: () => import('@/pages/admin/AdminPage.vue') },
+      { path: ':section(overview|users|runs|profiles|hotspots|audits|system)', component: () => import('@/pages/admin/AdminPage.vue') },
+    ],
+  },
+  {
     // 登录后的页面都在这个外框里：桌面左侧导航栏，手机底部标签栏
     path: '/',
     component: AppShell,
@@ -109,6 +118,7 @@ router.beforeEach(async (to) => {
   if (to.meta.requiresAuth && !auth.user) {
     return { name: 'login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
   }
+  if (to.meta.requiresAdmin && !auth.user?.is_admin) return '/me'
   if (to.meta.guestOnly && auth.user) {
     return safeRedirect(to.query.redirect)
   }

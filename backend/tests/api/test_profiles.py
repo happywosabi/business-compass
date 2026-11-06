@@ -91,15 +91,19 @@ async def test_delete_restore_archive_and_copy(owner):
     ]["base"] == 15
     assert (await owner.delete(path, params={"revision": 2})).status_code == 204
     assert (await owner.get(path)).status_code == 404
-    deleted = (await owner.get("/api/profiles?view=deleted")).json()
+    deleted = (await owner.get("/api/profiles?view=deleted")).json()["items"]
     assert [p["id"] for p in deleted] == [original["id"]]
     restored = await owner.post(path + "/restore", json={"revision": 3})
     assert restored.status_code == 200
     assert restored.json()["revision"] == 4
     archived = await owner.patch(path, json={"revision": 4, "status": "archived"})
     assert archived.status_code == 200
-    assert original["id"] not in [p["id"] for p in (await owner.get("/api/profiles")).json()]
-    assert (await owner.get("/api/profiles?view=archived")).json()[0]["id"] == original["id"]
+    assert original["id"] not in [
+        p["id"] for p in (await owner.get("/api/profiles")).json()["items"]
+    ]
+    assert (await owner.get("/api/profiles?view=archived")).json()["items"][0]["id"] == original[
+        "id"
+    ]
 
 
 async def test_restore_expiry(owner, db):
@@ -113,7 +117,7 @@ async def test_restore_expiry(owner, db):
     assert (
         await owner.post(f"/api/profiles/{profile['id']}/restore", json={"revision": 1})
     ).status_code == 404
-    assert (await owner.get("/api/profiles?view=deleted")).json() == []
+    assert (await owner.get("/api/profiles?view=deleted")).json()["items"] == []
 
 
 @pytest.mark.parametrize(
@@ -210,7 +214,7 @@ async def test_every_profile_operation_rejects_other_owner(
         method, f"/api/profiles/{profile['id']}{suffix}", json=payload
     )
     assert response.status_code == 404, response.text
-    assert (await other_client.get("/api/profiles")).json() == []
+    assert (await other_client.get("/api/profiles")).json()["items"] == []
 
 
 async def test_login_required_and_unknown_ids(client):

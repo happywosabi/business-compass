@@ -21,6 +21,7 @@ from .schemas import (
     ProfileCopy,
     ProfileCreate,
     ProfileOut,
+    ProfilePage,
     ProfileUpdate,
     RevisionBody,
     TemplateOut,
@@ -37,11 +38,15 @@ async def templates(user: CurrentUser, industry: Literal["fruit_retail"] | None 
     ]
 
 
-@router.get("/profiles", response_model=list[ProfileOut])
+@router.get("/profiles", response_model=ProfilePage)
 async def profiles(
-    db: DB, user: CurrentUser, view: Literal["active", "archived", "deleted"] = "active"
+    db: DB,
+    user: CurrentUser,
+    view: Literal["active", "archived", "deleted"] = "active",
+    limit: int = Query(20, ge=1, le=100),
+    cursor: str | None = Query(None, max_length=200),
 ):
-    return [service.profile_out(p) for p in await service.list_profiles(db, user.id, view)]
+    return await service.list_profiles(db, user.id, view, limit, cursor)
 
 
 @router.post("/profiles", response_model=ProfileOut, status_code=201)

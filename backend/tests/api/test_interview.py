@@ -137,18 +137,21 @@ async def test_failed_provider_preserves_saved_data_and_context_pairs(client, ap
     profile, path = prepared
     app.state.llm = FakeLLM(
         [
-            tool("use_default", {"keys": ["revenue.open_days"]}),
+            tool(
+                "update_parameters",
+                {"changes": {"revenue.open_days": 26}, "reason": "用户提供营业天数"},
+            ),
             RuntimeError("network failure"),
             {"role": "assistant", "content": "我们继续。"},
         ]
     )
     response = await client.post(
         path + "/messages",
-        json={"request_id": str(uuid4()), "revision": 1, "content": "营业天数先用默认值"},
+        json={"request_id": str(uuid4()), "revision": 1, "content": "每月营业26天"},
     )
     assert "event: error" in response.text
     p = (await client.get(f"/api/profiles/{profile['id']}")).json()
-    assert p["parameters"]["revenue"]["open_days"]["source"] == "default"
+    assert p["parameters"]["revenue"]["open_days"]["base"] == 26
     await client.post(
         path + "/messages",
         json={"request_id": str(uuid4()), "revision": p["revision"], "content": "继续"},

@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     ai_run_seconds: int = 240
     ai_max_output_tokens: int = 3000
     ai_report_max_tokens: int = 8000
+    ai_input_max_bytes: int = Field(default=131072, ge=1024)
+    ai_input_daily_bytes: int = Field(default=8388608, ge=1024)
+    profile_writes_per_minute: int = Field(default=30, ge=1)
+    profile_writes_per_day: int = Field(default=300, ge=1)
     calculation_seconds: float = Field(default=5, gt=0, le=30)
     calculation_per_minute: int = Field(default=30, ge=1, le=120)
     calculation_per_day: int = Field(default=300, ge=1)

@@ -1,0 +1,204 @@
+"""resource budgets and confirmed actions
+
+Revision ID: 8a7d317e1920
+Revises: d637b22b13c4
+Create Date: 2026-11-06 18:41:25.392947
+"""
+
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+from alembic import op
+from sqlalchemy.dialects import postgresql
+
+revision: str = "8a7d317e1920"
+down_revision: str | None = "d637b22b13c4"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
+
+
+OWNERS = {
+    "profiles": "NEW.user_id",
+    "ai_runs": "NEW.user_id",
+    "parameter_changes": "(SELECT user_id FROM profiles WHERE id = NEW.profile_id)",
+    "evaluations": "(SELECT user_id FROM profiles WHERE id = NEW.profile_id)",
+    "conversations": "(SELECT user_id FROM profiles WHERE id = NEW.profile_id)",
+    "content_drafts": "(SELECT user_id FROM profiles WHERE id = NEW.profile_id)",
+    "messages": "(SELECT user_id FROM ai_runs WHERE id = NEW.run_id)",
+    "evaluation_reports": "(SELECT p.user_id FROM evaluations e JOIN profiles p ON p.id = e.profile_id WHERE e.id = NEW.evaluation_id)",
+    "pending_actions": "NEW.user_id",
+}
+
+
+def statements(*, backfill=False):
+    yield """CREATE OR REPLACE FUNCTION compass_storage() RETURNS trigger AS $$
+    DECLARE owner_id uuid; prior_size int := 0; new_size int := 0;
+        delta_count int := 0; usage_row resource_usage%ROWTYPE; verified bool;
+    BEGIN
+        IF TG_OP = 'DELETE' THEN
+            SELECT user_id, size INTO owner_id, prior_size FROM storage_entries
+              WHERE table_name = TG_TABLE_NAME AND row_id = OLD.id;
+            IF owner_id IS NOT NULL THEN
+                UPDATE resource_usage SET storage_bytes = GREATEST(0, storage_bytes-prior_size),
+                  profile_count = GREATEST(0, profile_count-CASE WHEN TG_TABLE_NAME='profiles' THEN 1 ELSE 0 END)
+                  WHERE user_id=owner_id;
+                DELETE FROM storage_entries WHERE table_name=TG_TABLE_NAME AND row_id=OLD.id;
+            END IF;
+            RETURN OLD;
+        END IF;
+        EXECUTE TG_ARGV[0] INTO owner_id USING NEW;
+        IF owner_id IS NULL THEN RETURN NEW; END IF;
+        INSERT INTO resource_usage(user_id) VALUES(owner_id) ON CONFLICT DO NOTHING;
+        SELECT * INTO usage_row FROM resource_usage WHERE user_id=owner_id FOR UPDATE;
+        SELECT email_verified_at IS NOT NULL INTO verified FROM users WHERE id=owner_id;
+        SELECT size INTO prior_size FROM storage_entries WHERE table_name=TG_TABLE_NAME AND row_id=NEW.id;
+        prior_size := COALESCE(prior_size,0);
+        new_size := octet_length(to_jsonb(NEW)::text);
+        IF TG_TABLE_NAME='profiles' AND new_size>262144 AND new_size>prior_size
+          AND NOT (TG_OP='UPDATE' AND to_jsonb(NEW)->>'deleted_at' IS NOT NULL AND to_jsonb(OLD)->>'deleted_at' IS NULL) THEN
+            RAISE EXCEPTION 'compass_document_limit' USING ERRCODE='P0001';
+        END IF;
+        IF TG_OP='INSERT' AND TG_TABLE_NAME='profiles' THEN delta_count:=1; END IF;
+        IF delta_count>0 AND usage_row.profile_count+delta_count > (CASE WHEN verified THEN 100 ELSE 10 END) THEN
+            RAISE EXCEPTION 'compass_profile_limit' USING ERRCODE='P0001';
+        END IF;
+        IF new_size>prior_size AND usage_row.storage_bytes+new_size-prior_size > (CASE WHEN verified THEN 104857600 ELSE 10485760 END)
+          AND NOT (TG_TABLE_NAME='profiles' AND TG_OP='UPDATE' AND to_jsonb(NEW)->>'deleted_at' IS NOT NULL AND to_jsonb(OLD)->>'deleted_at' IS NULL) THEN
+            RAISE EXCEPTION 'compass_storage_limit' USING ERRCODE='P0001';
+        END IF;
+        UPDATE resource_usage SET storage_bytes=storage_bytes+new_size-prior_size,
+          profile_count=profile_count+delta_count WHERE user_id=owner_id;
+        INSERT INTO storage_entries(table_name,row_id,user_id,size) VALUES(TG_TABLE_NAME,NEW.id,owner_id,new_size)
+          ON CONFLICT(table_name,row_id) DO UPDATE SET size=EXCLUDED.size;
+        RETURN NEW;
+    END; $$ LANGUAGE plpgsql"""
+    for table, owner in OWNERS.items():
+        # 参数化动态SQL只使用固定表名/列名，不接受用户输入。
+        query = "SELECT " + owner.replace("NEW.", "($1).")
+        yield f"DROP TRIGGER IF EXISTS compass_budget ON {table}"
+        yield f"CREATE TRIGGER compass_budget AFTER INSERT OR UPDATE OR DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION compass_storage('{query}')"
+    if backfill:
+        for table, owner in OWNERS.items():
+            yield f"INSERT INTO storage_entries(table_name,row_id,user_id,size) SELECT '{table}', n.id, {owner.replace('NEW.', 'n.')}, octet_length(to_jsonb(n)::text) FROM {table} n ON CONFLICT DO NOTHING"
+        yield """INSERT INTO resource_usage(user_id,storage_bytes,profile_count)
+            SELECT u.id, COALESCE(sum(s.size),0), count(*) FILTER(WHERE s.table_name='profiles')
+            FROM users u LEFT JOIN storage_entries s ON s.user_id=u.id GROUP BY u.id
+            ON CONFLICT(user_id) DO UPDATE SET storage_bytes=EXCLUDED.storage_bytes,profile_count=EXCLUDED.profile_count"""
+
+
+def upgrade() -> None:
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.create_table(
+        "ai_input_reservations",
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("user_id", sa.UUID(), nullable=False),
+        sa.Column("size", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_ai_input_reservations_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_ai_input_reservations")),
+    )
+    op.create_index(
+        op.f("ix_ai_input_reservations_user_id_created_at"),
+        "ai_input_reservations",
+        ["user_id", "created_at"],
+        unique=False,
+    )
+    op.create_table(
+        "profile_writes",
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("user_id", sa.UUID(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_profile_writes_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_profile_writes")),
+    )
+    op.create_index(
+        op.f("ix_profile_writes_user_id_created_at"),
+        "profile_writes",
+        ["user_id", "created_at"],
+        unique=False,
+    )
+    op.create_table(
+        "resource_usage",
+        sa.Column("user_id", sa.UUID(), nullable=False),
+        sa.Column("storage_bytes", sa.Integer(), server_default="0", nullable=False),
+        sa.Column("profile_count", sa.Integer(), server_default="0", nullable=False),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_resource_usage_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("user_id", name=op.f("pk_resource_usage")),
+    )
+    op.create_table(
+        "storage_entries",
+        sa.Column("table_name", sa.Text(), nullable=False),
+        sa.Column("row_id", sa.UUID(), nullable=False),
+        sa.Column("user_id", sa.UUID(), nullable=False),
+        sa.Column("size", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_storage_entries_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("table_name", "row_id", name=op.f("pk_storage_entries")),
+    )
+    op.create_index(
+        op.f("ix_storage_entries_user_id"), "storage_entries", ["user_id"], unique=False
+    )
+    op.create_table(
+        "pending_actions",
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("user_id", sa.UUID(), nullable=False),
+        sa.Column("profile_id", sa.UUID(), nullable=False),
+        sa.Column("revision", sa.Integer(), nullable=False),
+        sa.Column("action", sa.Text(), nullable=False),
+        sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("result", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["profile_id"],
+            ["profiles.id"],
+            name=op.f("fk_pending_actions_profile_id_profiles"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            name=op.f("fk_pending_actions_user_id_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_pending_actions")),
+    )
+    for statement in statements(backfill=True):
+        op.execute(statement)
+
+
+def downgrade() -> None:
+    for table in OWNERS:
+        op.execute(f"DROP TRIGGER IF EXISTS compass_budget ON {table}")
+    op.execute("DROP FUNCTION IF EXISTS compass_storage()")
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table("pending_actions")
+    op.drop_index(op.f("ix_storage_entries_user_id"), table_name="storage_entries")
+    op.drop_table("storage_entries")
+    op.drop_table("resource_usage")
+    op.drop_index(op.f("ix_profile_writes_user_id_created_at"), table_name="profile_writes")
+    op.drop_table("profile_writes")
+    op.drop_index(
+        op.f("ix_ai_input_reservations_user_id_created_at"), table_name="ai_input_reservations"
+    )
+    op.drop_table("ai_input_reservations")
+    # ### end Alembic commands ###

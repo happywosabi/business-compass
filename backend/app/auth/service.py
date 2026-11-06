@@ -413,6 +413,7 @@ async def change_password(
     user.password_version += 1
     user.password_changed_at = utcnow()
     session.password_version = user.password_version
+    session.admin_until = None
     await _revoke_resets(db, user, user.password_changed_at)
     # 其他设备退出登录，当前设备保持登录
     await db.execute(

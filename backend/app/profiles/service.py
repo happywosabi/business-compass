@@ -13,10 +13,13 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import utcnow
+from app.db.budgets import lock_usage
 from app.db.models import ParameterChange, Profile
 from app.engine import PhysicalStoreParams
 from app.engine.fruit_retail import FruitRetailParams
 from app.engine.orchard import OrchardParams
+from app.pagination import before, cursor_for
+from app.resources import reserve_write, validate_document
 from app.templates import load_template
 from app.templates.registry import parameter_keys, parameter_model, parse_parameters
 
@@ -113,7 +116,7 @@ def profile_out(profile: Profile) -> ProfileOut:
     )
 
 
-async def list_profiles(db: AsyncSession, user_id: UUID, view: str) -> list[Profile]:
+async def list_profiles(db: AsyncSession, user_id: UUID, view: str, limit=20, cursor=None):
     query = select(Profile).where(Profile.user_id == user_id)
     if view == "deleted":
         query = query.where(Profile.deleted_at > utcnow() - timedelta(days=RESTORE_DAYS))
@@ -122,7 +125,45 @@ async def list_profiles(db: AsyncSession, user_id: UUID, view: str) -> list[Prof
         query = query.where(
             Profile.status == "archived" if view == "archived" else Profile.status != "archived"
         )
-    return list(await db.scalars(query.order_by(Profile.updated_at.desc(), Profile.id)))
+    query = before(query, Profile.updated_at, Profile.id, cursor)
+    rows = list(
+        await db.scalars(
+            query.order_by(Profile.updated_at.desc(), Profile.id.desc()).limit(limit + 1)
+        )
+    )
+    fields = (
+        "id",
+        "name",
+        "template_key",
+        "industry",
+        "city",
+        "stage",
+        "status",
+        "revision",
+        "updated_at",
+        "deleted_at",
+        "quick_missing",
+        "quick_required_keys",
+    )
+    items = []
+    for profile in rows[:limit]:
+        params = parse_parameters(profile.template_key, profile.parameters)
+        template = load_template(profile.template_key, profile.industry)
+        items.append(
+            {
+                **{k: getattr(profile, k) for k in fields if hasattr(profile, k)},
+                "quick_missing": template.quick_missing(params),
+                "quick_required_keys": params.required_keys()
+                if isinstance(params, FruitRetailParams)
+                else template.quick_required_keys,
+            }
+        )
+    return {
+        "items": items,
+        "next_cursor": cursor_for(rows[limit - 1].updated_at, rows[limit - 1].id)
+        if len(rows) > limit
+        else None,
+    }
 
 
 def record_changes(
@@ -205,6 +246,8 @@ def validate_ranges(params: PhysicalStoreParams | OrchardParams | FruitRetailPar
 
 
 async def create_profile(db: AsyncSession, user_id: UUID, body: ProfileCreate) -> Profile:
+    validate_document(body.model_dump(mode="json"))
+    await reserve_write(db, user_id)
     template = load_template(body.template_key, body.industry)
     if body.industry not in template.industry_codes:
         raise HTTPException(422, "业态与档案模板不匹配")
@@ -239,6 +282,13 @@ async def write_profile(
     deleted: bool = False,
 ) -> Profile:
     """单条条件 UPDATE 是并发裁决点；调用方提交事务及审计记录。"""
+    previous = {
+        k: getattr(profile, k)
+        for k in ("parameters", "value_proposition", "brand_voice", "name", "city", "district")
+    }
+    if set(values) != {"deleted_at"}:
+        validate_document({**previous, **values}, previous)
+    await reserve_write(db, profile.user_id)
     if profile.template_key == "orchard" and "stage" in values and values["stage"] != "operating":
         raise HTTPException(422, "首期仅支持已投产果园")
     if profile.industry == "fruit_retail" and "stage" in values:
@@ -248,6 +298,7 @@ async def write_profile(
         values["parameters"] = params.model_copy(update={"stage": values["stage"]}).model_dump(
             mode="json"
         )
+    await lock_usage(db, profile.user_id)
     condition = Profile.deleted_at.is_not(None) if deleted else Profile.deleted_at.is_(None)
     result = await db.execute(
         update(Profile)
@@ -341,6 +392,15 @@ async def use_defaults(
 async def copy_profile(
     db: AsyncSession, profile: Profile, revision: int, name: str | None
 ) -> Profile:
+    validate_document(
+        {
+            "parameters": profile.parameters,
+            "value_proposition": profile.value_proposition,
+            "brand_voice": profile.brand_voice,
+        }
+    )
+    await reserve_write(db, profile.user_id)
+    await lock_usage(db, profile.user_id)
     # 条件更新同时保护复制基准，复制不改动原档案的修订号和内容。
     current = await db.scalar(
         select(Profile)

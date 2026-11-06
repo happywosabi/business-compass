@@ -38,6 +38,18 @@ const draft = ref(''),
   cardOpen = ref(false),
   composition = ref(false)
 const chatLog = ref<HTMLElement>()
+const confirmations = ref<import('@/api/interview').Confirmation[]>([])
+async function confirmAction(action: import('@/api/interview').Confirmation) {
+  if (pending.value) return
+  pending.value = true
+  try {
+    const result = await interviewApi.confirm(id, action)
+    confirmations.value = await interviewApi.confirmations(id)
+    await refreshProfile()
+    if (result.evaluation_id) await openResult(result.evaluation_id)
+  } catch (e) { error.value = errorMessage(e) }
+  finally { pending.value = false }
+}
 const followLatest = ref(true)
 const visible = computed(() =>
   history.value.messages.filter((m) => m.role === 'user' || (!m.tool_calls && m.content)),
@@ -87,6 +99,7 @@ async function restoreHistory() {
   await refreshProfile()
 }
 async function loadHistory() {
+  confirmations.value = await interviewApi.confirmations(id)
   history.value = await interviewApi.history(id)
   const latest = history.value.runs.at(-1)
   quick.value = latest?.output.quick_replies ?? []
@@ -270,6 +283,14 @@ onBeforeUnmount(() => {
     </PageHead>
     <div v-if="loading" class="skeleton" style="height: 400px" />
     <div v-else-if="profile" class="interview-layout">
+      <section v-for="action in confirmations" :key="action.id" class="bc-card confirmation-card">
+        <h3>{{ action.action === 'defaults' ? '确认补充默认值' : action.action === 'apply' ? '确认应用试算方案' : '确认正式测算' }}</h3>
+        <p>基于当前第 {{ action.revision }} 版档案。{{ action.action === 'defaults' ? '默认值是待核实假设，确认后才会写入。' : '确认后会生成不可变快照并消耗一次测算额度。' }}</p>
+        <p v-if="action.payload.keys" class="sub">{{ action.payload.keys.map(key => template?.fields.find(field => field.key === key)?.label || key).join('、') }}</p>
+        <p v-if="action.payload.changes" class="sub">{{ Object.entries(action.payload.changes).map(([key, value]) => `${template?.fields.find(field => field.key === key)?.label || key}：${typeof value === 'object' ? JSON.stringify(value) : value}`).join('；') }}</p>
+        <p class="sub">确认有效期 10 分钟，档案更新后需重新确认。</p>
+        <van-button type="primary" :disabled="pending" @click="confirmAction(action)">确认执行</van-button>
+      </section>
       <div class="chat-summary">
         <div>
           <b>{{ profile.name }}</b
@@ -452,6 +473,10 @@ onBeforeUnmount(() => {
   </div>
 </template>
 <style scoped>
+.confirmation-card { grid-column: 1 / -1; padding: 24px; border-color: var(--accent-line); background: var(--accent-soft); }
+.confirmation-card h3 { font-size: 17px; margin-bottom: 12px; }
+.confirmation-card p { font-size: 13px; line-height: 1.8; margin-bottom: 12px; }
+
 .chat-summary {
   display: none;
 }

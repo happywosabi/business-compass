@@ -11,7 +11,7 @@ from app.auth.dependencies import CurrentUser, VerifiedUser
 from app.db.base import utcnow
 from app.db.models import AIRun, ContentDraft
 from app.deps import DB, AppSettings
-from app.llm.runs import reserve
+from app.llm.runs import guard_write, reserve
 from app.profiles import service as profiles
 from app.profiles.schemas import StrictBody
 
@@ -248,6 +248,7 @@ async def generate(
         ),
         status="running",
     )
+    await guard_write(db, run.id)
     db.add(draft)
     await db.commit()
     request.app.state.ai_hub.start(run.id, service.generate(request.app, run.id, draft.id))

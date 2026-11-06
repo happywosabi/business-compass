@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.budgets import lock_usage
 from app.db.models import Evaluation, Profile
 from app.engine import ENGINE_VERSION
 from app.engine.fruit_retail import FruitRetailParams, FruitRetailResult
@@ -55,6 +56,7 @@ async def create_evaluation(
     trigger: str = "user_request",
     commit: bool = True,
 ) -> Evaluation:
+    await lock_usage(db, profile.user_id)
     # 锁与乐观 revision 一起使用，保证参数、审计、快照来自同一个工作稿。
     current = await db.scalar(
         select(Profile)

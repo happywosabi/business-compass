@@ -247,7 +247,11 @@ async def recommendations(db, template_key="physical_store", industry=None):
     rows = list(
         await db.scalars(
             select(HotTopic)
-            .where(HotTopic.safe.is_(True), HotTopic.fetched_at > utcnow() - timedelta(hours=24))
+            .where(
+                HotTopic.safe.is_(True),
+                HotTopic.manually_hidden.is_(False),
+                HotTopic.fetched_at > utcnow() - timedelta(hours=24),
+            )
             .order_by(HotTopic.rank)
             .limit(60)
         )

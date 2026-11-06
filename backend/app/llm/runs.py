@@ -17,7 +17,14 @@ MAX_CONCURRENT_RUNS = 3
 async def reserve(
     db, user, profile_id: UUID, request_id: UUID, kind: str, data: dict, settings: Settings
 ):
-    user = await db.scalar(select(User).where(User.id == user.id).with_for_update())
+    user = await db.scalar(
+        select(User)
+        .where(User.id == user.id)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
+    if user.status != "active" or user.deleted_at is not None:
+        raise HTTPException(403, "账号已停用")
     previous = await db.scalar(
         select(AIRun).where(AIRun.user_id == user.id, AIRun.request_id == request_id)
     )
@@ -85,9 +92,44 @@ async def update_run(factory, run_id, **values):
 async def check_cancel(factory, run_id):
     async with factory() as db:
         run = await db.get(AIRun, run_id)
-        if run.cancel_requested or run.status != "running":
+        user = await db.get(User, run.user_id) if run else None
+        if (
+            run is None
+            or run.cancel_requested
+            or run.status != "running"
+            or user is None
+            or user.status != "active"
+            or user.deleted_at
+        ):
             raise RunCancelled()
 
 
 class RunCancelled(Exception):
     pass
+
+
+async def guard_write(db, run_id):
+    """与停用操作争用用户行锁，防止检查后再落入写入竞态。"""
+    owner_id = await db.scalar(select(AIRun.user_id).where(AIRun.id == run_id))
+    user = await db.scalar(
+        select(User)
+        .where(User.id == owner_id)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
+    run = await db.scalar(
+        select(AIRun)
+        .where(AIRun.id == run_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if (
+        user is None
+        or user.status != "active"
+        or user.deleted_at
+        or run is None
+        or run.status != "running"
+        or run.cancel_requested
+    ):
+        raise RunCancelled()
+    return run

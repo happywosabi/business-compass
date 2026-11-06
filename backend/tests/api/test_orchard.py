@@ -230,5 +230,5 @@ async def test_orchard_interview_and_clear_guard(client, app, outbox):
         path + "/interview/messages",
         json={"revision": 1, "request_id": str(uuid4()), "content": "跑一版吧"},
     )
-    assert r.status_code == 200 and "evaluation_id" in r.text
+    assert r.status_code == 200 and "confirmation" in r.text
     assert len(app.state.llm.calls) == 0

@@ -106,7 +106,7 @@ async def test_confirmed_evaluation_finishes_without_extra_model_prose(client, a
             "content": "按刚才确认的数字做个评估给我看看",
         },
     )
-    assert "event: done" in response.text and "evaluation_id" in response.text
+    assert "event: done" in response.text and "confirmation" in response.text
     assert len(app.state.llm.calls) == 1
     from app.db.models import Conversation
 
@@ -117,7 +117,18 @@ async def test_confirmed_evaluation_finishes_without_extra_model_prose(client, a
     calls = [c["id"] for m in messages for c in m.get("tool_calls", [])]
     replies = [m["tool_call_id"] for m in messages if m["role"] == "tool"]
     assert calls == replies
-    assert messages[-1]["content"] == "测算已完成，正在打开结果。"
+    assert messages[-1]["content"] == "请核对下方操作卡片，点击确认后执行。"
+    actions = (await client.get(path + "/confirmations")).json()
+    assert len(actions) == 1
+    confirmed = await client.post(
+        path + f"/confirmations/{actions[0]['id']}/confirm", json={"revision": profile["revision"]}
+    )
+    assert confirmed.status_code == 200
+    assert "evaluation_id" in confirmed.json()
+    repeated = await client.post(
+        path + f"/confirmations/{actions[0]['id']}/confirm", json={"revision": profile["revision"]}
+    )
+    assert repeated.json() == confirmed.json()
 
 
 async def test_new_parameters_get_new_snapshot_and_preserve_old_report(client, app, db, ready):
@@ -161,11 +172,11 @@ async def test_short_confirmation_runs_calculation_without_another_model_respons
 
     await send("数字我都填好了")
     response = await send("跑一版吧")
-    assert "event: done" in response.text and "evaluation_id" in response.text
+    assert "event: done" in response.text and "confirmation" in response.text
     assert len(app.state.llm.calls) == 1
     # 已完成后再次发明确测算指令，也直接打开同一份结果。
     repeated = await send("跑一版吧")
-    assert "evaluation_id" in repeated.text
+    assert "confirmation" in repeated.text
     assert len(app.state.llm.calls) == 1
 
 

@@ -14,7 +14,8 @@ from sqlalchemy import select
 
 from app.db.base import utcnow
 from app.db.models import AIRun, Conversation, Message
-from app.llm.runs import RunCancelled, check_cancel, update_run
+from app.llm.budget import AccountProvider
+from app.llm.runs import RunCancelled, check_cancel, guard_write, update_run
 from app.profiles import service as profiles
 
 from . import tools
@@ -108,9 +109,11 @@ async def drive(app, run_id: UUID):
         async with asyncio.timeout(settings.ai_run_seconds):
             async with factory() as db:
                 run = await db.get(AIRun, run_id)
+                provider = AccountProvider(app.state.llm, factory, settings, run.user_id)
                 profile = await profiles.get_owned_profile(db, run.user_id, run.profile_id)
                 if profile.revision != run.input["revision"]:
                     raise HTTPException(409, "档案已更新，请确认最新数字后重新发送")
+                await guard_write(db, run_id)
                 conv = await conversation(db, profile.id)
                 previous = await history_context(db, conv.id)
                 previous_reply = next(
@@ -186,7 +189,7 @@ async def drive(app, run_id: UUID):
                             {},
                         )
                     else:
-                        message, usage = await app.state.llm.complete(
+                        message, usage = await provider.complete(
                             messages,
                             tools.definitions(profile.template_key, profile.industry)
                             if round_number < 5
@@ -200,6 +203,7 @@ async def drive(app, run_id: UUID):
                         factory, run_id, input_tokens=usage_in, output_tokens=usage_out
                     )
                     await check_cancel(factory, run_id)
+                    await guard_write(db, run_id)
                     row = Message(
                         conversation_id=conv.id,
                         run_id=run_id,
@@ -230,6 +234,7 @@ async def drive(app, run_id: UUID):
                                 profile = await profiles.get_owned_profile(
                                     db, run.user_id, run.profile_id
                                 )
+                                await guard_write(db, run_id)
                                 profile, output = await tools.execute(
                                     db,
                                     profile,
@@ -268,13 +273,19 @@ async def drive(app, run_id: UUID):
                             {
                                 k: v
                                 for k, v in output.items()
-                                if k in {"quick_replies", "evaluation_id"}
+                                if k in {"quick_replies", "evaluation_id", "confirmation"}
                             }
                         )
                         await hub.emit(run_id, "profile", output)
-                        if output.get("evaluation_id"):
-                            # 计算页面负责展示结果；快照提交后即可导航，省去模型再次长篇复述。
-                            completed = {"content": "测算已完成，正在打开结果。", **last_extra}
+                        if output.get("evaluation_id") or output.get("confirmation"):
+                            await guard_write(db, run_id)
+                            # 操作卡片由用户确认，结束本轮以保留明确的动作边界。
+                            completed = {
+                                "content": "请核对下方操作卡片，点击确认后执行。"
+                                if output.get("confirmation")
+                                else "测算已完成，正在打开结果。",
+                                **last_extra,
+                            }
                             # 同批未执行的工具仍需配对回复，保证下一轮模型上下文协议完整。
                             for remaining in calls[call_index + 1 :]:
                                 db.add(
@@ -286,7 +297,7 @@ async def drive(app, run_id: UUID):
                                             "role": "tool",
                                             "tool_call_id": remaining["id"],
                                             "content": json.dumps(
-                                                {"skipped": "已完成测算，打开结果页面"},
+                                                {"skipped": "请先确认操作卡片"},
                                                 ensure_ascii=False,
                                             ),
                                         },

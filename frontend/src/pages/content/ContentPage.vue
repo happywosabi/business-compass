@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { profilesApi, type Profile } from '@/api/profiles'
+import { profilesApi, type ProfileSummary as Profile } from '@/api/profiles'
 import { contentApi, type Draft, type Topic } from '@/api/content'
 import { errorMessage } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -65,7 +65,7 @@ async function load() {
   hotTopicId.value = ''
   active.value = undefined
   facts.value = ''
-  const params = profiles.value.find((p) => p.id === id.value)?.parameters
+  const params = id.value ? (await profilesApi.get(id.value)).parameters : undefined
   audience.value =
     params && 'orchard' in params && params.orchard?.audience?.base === 'wholesale'
       ? 'buyers'
@@ -153,7 +153,7 @@ watch(id, () => {
 })
 onMounted(async () => {
   try {
-    profiles.value = await profilesApi.list()
+    profiles.value = await profilesApi.summaries()
     if (!profiles.value.some((p) => p.id === id.value)) {
       id.value = profiles.value[0]?.id ?? ''
       if (!id.value) loading.value = false

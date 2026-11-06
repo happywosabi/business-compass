@@ -40,6 +40,7 @@ class User(Base):
     nickname: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, default="active", server_default="active")
     daily_ai_quota: Mapped[int | None] = mapped_column(Integer)  # 为空时使用系统默认值
+    is_admin: Mapped[bool] = mapped_column(default=False, server_default="false")
     last_login_at: Mapped[datetime | None] = _timestamp()
     created_at: Mapped[datetime] = _timestamp(
         nullable=False, default=utcnow, server_default=func.now()
@@ -75,6 +76,7 @@ class UserSession(Base):
     )
     ip: Mapped[str | None] = mapped_column(Text)
     user_agent: Mapped[str | None] = mapped_column(Text)
+    admin_until: Mapped[datetime | None] = _timestamp()
 
 
 class EmailToken(Base):
@@ -272,6 +274,7 @@ class HotTopic(Base):
     rank: Mapped[int] = mapped_column(Integer)
     previous_rank: Mapped[int | None] = mapped_column(Integer)
     safe: Mapped[bool] = mapped_column(default=False)
+    manually_hidden: Mapped[bool] = mapped_column(default=False, server_default="false")
     embedding: Mapped[list[float] | None] = mapped_column(JSONB, nullable=True)
     sources: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     fetched_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
@@ -304,3 +307,74 @@ class HotCollectionRun(Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
     finished_at: Mapped[datetime | None] = _timestamp()
+
+
+class ResourceUsage(Base):
+    __tablename__ = "resource_usage"
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    storage_bytes: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    profile_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class StorageEntry(Base):
+    __tablename__ = "storage_entries"
+    table_name: Mapped[str] = mapped_column(Text, primary_key=True)
+    row_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    size: Mapped[int] = mapped_column(Integer)
+
+
+class ProfileWrite(Base):
+    __tablename__ = "profile_writes"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
+    __table_args__ = (Index(None, "user_id", "created_at"),)
+
+
+class AIInputReservation(Base):
+    __tablename__ = "ai_input_reservations"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    size: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
+    __table_args__ = (Index(None, "user_id", "created_at"),)
+
+
+class PendingAction(Base):
+    __tablename__ = "pending_actions"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+    revision: Mapped[int] = mapped_column(Integer)
+    action: Mapped[str] = mapped_column(Text)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
+    expires_at: Mapped[datetime] = _timestamp(nullable=False)
+
+
+class AdminAudit(Base):
+    """只追加操作元数据；不记录密码、令牌、模型输入或用户正文。"""
+
+    __tablename__ = "admin_audits"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    action: Mapped[str] = mapped_column(Text)
+    target: Mapped[str] = mapped_column(Text)
+    reason: Mapped[str] = mapped_column(Text)
+    ip: Mapped[str | None] = mapped_column(Text)
+    result: Mapped[str] = mapped_column(Text, default="success")
+    changes: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)
+    __table_args__ = (Index(None, "created_at", "id"), Index(None, "actor_id", "created_at"))
+
+
+class WorkerHeartbeat(Base):
+    __tablename__ = "worker_heartbeats"
+    name: Mapped[str] = mapped_column(Text, primary_key=True)
+    seen_at: Mapped[datetime] = _timestamp(nullable=False, default=utcnow)

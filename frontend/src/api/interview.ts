@@ -4,8 +4,15 @@ export interface Run {
   id: string
   request_id: string
   status: 'running' | 'succeeded' | 'failed' | 'cancelled'
-  output: { content?: string; quick_replies?: string[]; evaluation_id?: string }
+  output: { content?: string; quick_replies?: string[]; evaluation_id?: string; confirmation?: Confirmation }
   error?: string
+}
+export interface Confirmation {
+  id: string
+  action: 'evaluation' | 'defaults' | 'apply'
+  revision: number
+  payload: { keys?: string[]; changes?: Record<string, unknown> }
+  expires_at: string
 }
 export interface ChatMessage {
   id: string
@@ -19,6 +26,8 @@ export interface ChatHistory {
   runs: Run[]
 }
 export const interviewApi = {
+  confirmations: (id: string) => api.get<Confirmation[]>(`/api/profiles/${id}/confirmations`),
+  confirm: (id: string, action: Confirmation) => api.post<{evaluation_id?: string}>(`/api/profiles/${id}/confirmations/${action.id}/confirm`, {revision: action.revision}),
   history: (id: string) => api.get<ChatHistory>(`/api/profiles/${id}/interview`),
   run: (id: string, rid: string) => api.get<Run>(`/api/profiles/${id}/interview/runs/${rid}`),
   cancel: (id: string, rid: string) =>

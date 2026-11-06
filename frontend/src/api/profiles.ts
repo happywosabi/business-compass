@@ -3,6 +3,7 @@ import type { components } from './schema'
 
 type Schemas = components['schemas']
 export type Profile = Schemas['ProfileOut']
+export type ProfileSummary = Schemas['ProfileSummary']
 export type Template = Schemas['TemplateOut']
 export type Field = Template['fields'][number]
 export type Change = Schemas['ChangeOut']
@@ -20,7 +21,17 @@ export const profilesApi = {
     api.get<Template[]>(
       industry === 'fruit_retail' ? '/api/templates?industry=fruit_retail' : '/api/templates',
     ),
-  list: (view: View = 'active') => api.get<Profile[]>(`/api/profiles?view=${view}`),
+  list: (view: View = 'active', cursor?: string) => api.get<Schemas['ProfilePage']>(`/api/profiles?view=${view}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+  summaries: async () => {
+    const items: ProfileSummary[] = []
+    let cursor: string | undefined
+    do {
+      const page = await profilesApi.list('active', cursor)
+      items.push(...page.items)
+      cursor = page.next_cursor ?? undefined
+    } while (cursor)
+    return items
+  },
   get: (id: string) => api.get<Profile>(`/api/profiles/${id}`),
   create: (body: Schemas['ProfileCreate']) => api.post<Profile>('/api/profiles', body),
   update: (id: string, body: Schemas['ProfileUpdate']) =>

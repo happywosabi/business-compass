@@ -16,7 +16,8 @@ from app.db.models import AIRun, EvaluationReport
 from app.deps import DB, AppSettings
 from app.evaluations import service as evaluations
 from app.interview.router import run_out
-from app.llm.runs import check_cancel, reserve, update_run
+from app.llm.budget import AccountProvider
+from app.llm.runs import RunCancelled, check_cancel, guard_write, reserve, update_run
 from app.profiles import service as profiles
 from app.profiles.schemas import StrictBody
 
@@ -226,7 +227,9 @@ async def generate(app, run_id, snapshot):
                 content, accepted, total_in, total_out = "", False, 0, 0
                 for attempt in range(2):
                     await check_cancel(factory, run_id)
-                    message, usage = await app.state.llm.complete(
+                    message, usage = await AccountProvider(
+                        app.state.llm, factory, settings, run.user_id
+                    ).complete(
                         [
                             {
                                 "role": "system",
@@ -256,6 +259,7 @@ async def generate(app, run_id, snapshot):
                 report = await db.scalar(
                     select(EvaluationReport).where(EvaluationReport.evaluation_id == snapshot.id)
                 )
+                await guard_write(db, run_id)
                 report.status = "succeeded" if accepted else "failed"
                 report.content = (
                     content
@@ -282,7 +286,7 @@ async def generate(app, run_id, snapshot):
                     finished_at=utcnow(),
                 )
     except (Exception, asyncio.CancelledError) as error:
-        logger.info("Report run %s ended: %s %s", run_id, type(error).__name__, str(error)[:180])
+        logger.info("Report run %s ended: %s", run_id, type(error).__name__)
         async with factory() as db:
             report = await db.scalar(
                 select(EvaluationReport).where(EvaluationReport.evaluation_id == snapshot.id)
@@ -293,7 +297,9 @@ async def generate(app, run_id, snapshot):
         await update_run(
             factory,
             run_id,
-            status="failed",
+            status="cancelled"
+            if isinstance(error, (RunCancelled, asyncio.CancelledError))
+            else "failed",
             error="解读生成失败，请以数字卡片为准，稍后重试",
             finished_at=utcnow(),
         )
@@ -361,6 +367,7 @@ async def create_report(
             finished_at=utcnow(),
         )
         return {"status": "succeeded"}
+    await guard_write(db, run.id)
     if existing:
         existing.run_id, existing.status, existing.content = run.id, "running", None
     else:

@@ -124,6 +124,26 @@ class ProfileOut(BaseModel):
     quick_required_keys: list[str] = Field(default_factory=list)
 
 
+class ProfileSummary(BaseModel):
+    id: UUID
+    name: str
+    template_key: str
+    industry: str
+    city: str
+    stage: ProfileStage
+    status: ProfileStatus
+    revision: int
+    updated_at: datetime
+    deleted_at: datetime | None
+    quick_missing: list[str]
+    quick_required_keys: list[str]
+
+
+class ProfilePage(BaseModel):
+    items: list[ProfileSummary]
+    next_cursor: str | None
+
+
 class ChangeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

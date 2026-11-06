@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { profilesApi, type Profile, type View, type Template } from '@/api/profiles'
+import { profilesApi, type ProfileSummary as Profile, type View, type Template } from '@/api/profiles'
 import { errorMessage } from '@/api/client'
 import AppIcon from '@/components/AppIcon.vue'
 import CompassMark from '@/components/CompassMark.vue'
@@ -20,6 +20,15 @@ const greeting = computed(() =>
   profiles.value.length ? '每个好生意，都从算清楚开始。' : '你的下一个好生意，从这里启航。',
 )
 let sequence = 0
+const nextCursor = ref<string | null>(null)
+async function more() {
+  if (!nextCursor.value) return
+  try {
+    const page = await profilesApi.list(view.value, nextCursor.value)
+    profiles.value.push(...page.items)
+    nextCursor.value = page.next_cursor
+  } catch (e) { error.value = errorMessage(e) }
+}
 async function load() {
   const ticket = ++sequence
   loading.value = true
@@ -30,7 +39,7 @@ async function load() {
       profilesApi.templates(),
     ])
     templates.value = metadata
-    if (ticket === sequence) profiles.value = items
+    if (ticket === sequence) { profiles.value = items.items; nextCursor.value = items.next_cursor }
   } catch (e) {
     if (ticket === sequence) error.value = errorMessage(e)
   } finally {
@@ -167,6 +176,7 @@ onMounted(load)
         </p>
       </div>
     </TransitionGroup>
+    <button v-if="nextCursor" class="text-link" @click="more">加载更多档案</button>
     <div class="journey-note">
       <span class="note-line" /><span>想得再远，也从一个真实的数字开始。</span
       ><span class="note-line" />

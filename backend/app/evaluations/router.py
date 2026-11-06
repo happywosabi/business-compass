@@ -70,6 +70,10 @@ async def preview(profile_id: UUID, body: WhatIfRequest, db: DB, user: CurrentUs
 @router.post("/what-if/apply", response_model=EvaluationOut, status_code=201)
 async def apply(profile_id: UUID, body: ApplyWhatIf, db: DB, user: CurrentUser):
     profile = await profiles.get_owned_profile(db, user.id, profile_id)
+    return await apply_changes(db, profile, body)
+
+
+async def apply_changes(db, profile, body, *, commit=True):
     snapshot = await service.get_snapshot(db, profile, body.evaluation_id)
     if profile.industry == "fruit_retail" and snapshot.parameters.get("stage") != profile.stage:
         from fastapi import HTTPException
@@ -95,5 +99,5 @@ async def apply(profile_id: UUID, body: ApplyWhatIf, db: DB, user: CurrentUser):
         commit=False,
     )
     return await service.create_evaluation(
-        db, profile, profile.revision, trigger="parameter_change"
+        db, profile, profile.revision, trigger="parameter_change", commit=commit
     )

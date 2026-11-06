@@ -9,13 +9,14 @@ from fastapi import HTTPException
 from pydantic import Field
 from sqlalchemy import select
 
+from app.confirmations import propose
 from app.db.models import Message
 from app.engine import estimate_traffic
 from app.evaluations import service as evaluations
 from app.profiles import service as profiles
 from app.profiles.schemas import ProfileUpdate, StrictBody
 from app.templates import load_template
-from app.templates.registry import calculate, parse_parameters
+from app.templates.registry import parse_parameters
 
 from .amounts import daily_orders, guard_changes, monthly_amount
 from .orchard import Convert, convert, guard_orchard_changes, guard_orchard_update
@@ -98,10 +99,10 @@ TOOLS = {
         PeriodicValue,
         "记录带日/月/年单位的租金、老板工资、员工每人工资或单量，代码负责换算。日薪需先确认工作天数，月单量需确认营业天数。金额不能当单量。",
     ),
-    "use_default": (Defaults, "用户同意后给指定参数补默认值，保留来源与依据。"),
+    "use_default": (Defaults, "提出补默认值确认卡片；只有用户点击按钮后才会写入。"),
     "estimate_traffic": (Traffic, "调用客流估算，保存原始输入但不填写日单量。"),
     "what_if": (WhatIf, "临时试算，不保存；参数未齐时返回缺项。"),
-    "run_evaluation": (Empty, "用户确认后生成不可变测算快照。"),
+    "run_evaluation": (Empty, "提出正式测算确认卡片；只有用户点击按钮后才会执行。"),
     "show_quick_replies": (QuickReplies, "显示2–4个短选项，每个最多10字。"),
 }
 
@@ -361,10 +362,7 @@ async def execute(
             db, profile, revision, info.model_dump(exclude={"revision"}, exclude_unset=True)
         )
     elif name == "use_default":
-        # 默认值服务使用独立 commit 开关，工具结果会与写入同一事务提交。
-        profile = await profiles.use_defaults(
-            db, profile, revision, body.keys, commit=False, message_id=message_id
-        )
+        extra["confirmation"] = await propose(db, profile, "defaults", {"keys": body.keys})
     elif name == "estimate_traffic":
         result = estimate_traffic(
             body.method, body.inputs, template.traffic_defaults(profile.industry)
@@ -378,32 +376,15 @@ async def execute(
         )
         extra["traffic_estimate"] = result.model_dump()
     elif name == "run_evaluation":
-        item = await evaluations.create_evaluation(
-            db, profile, revision, trigger="interview", commit=False
-        )
-        extra = {
-            "evaluation_id": str(item.id),
-            "results": {
-                **item.results,
-                "scenarios": {
-                    key: {k: v for k, v in value.items() if k != "monthly"}
-                    for key, value in item.results["scenarios"].items()
-                },
-            },
-            "summary": item.summary,
-        }
+        extra["confirmation"] = await propose(db, profile, "evaluation")
     elif name == "what_if":
         result = await evaluations.try_changes(db, profile, body.changes, None, revision)
         extra["what_if"] = result.model_dump()
+        extra["confirmation"] = await propose(db, profile, "apply", {"changes": body.changes})
     elif name == "show_quick_replies":
         if any(len(s) > 10 for s in body.options):
             raise ValueError("快捷选项最多10字")
         extra["quick_replies"] = body.options
-    params = parse_parameters(profile.template_key, profile.parameters)
-    if not params.missing_keys() and profile.template_key != "orchard":
-        extra["checks"] = [
-            c.model_dump() for c in calculate(params, template.check_rules(profile.industry)).checks
-        ]
     return profile, {**state(profile), **extra}
 
 

@@ -75,6 +75,9 @@ async def test_settings(anyio_backend) -> Settings:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+        from app.db.budgets import install
+
+        await install(conn)
     await engine.dispose()
     return settings
 

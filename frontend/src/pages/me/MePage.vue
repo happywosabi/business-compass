@@ -74,6 +74,9 @@ async function logout() {
     </section>
 
     <van-cell-group inset class="menu">
+      <van-cell v-if="auth.user?.is_admin" title="管理工作台" is-link to="/admin">
+        <template #icon><AppIcon name="lock" class="cell-icon" /></template>
+      </van-cell>
       <van-cell title="修改密码" is-link to="/me/password">
         <template #icon><AppIcon name="lock" class="cell-icon" /></template>
       </van-cell>

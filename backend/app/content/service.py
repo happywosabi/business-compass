@@ -8,7 +8,8 @@ from pathlib import Path
 
 from app.db.base import utcnow
 from app.db.models import AIRun, ContentDraft
-from app.llm.runs import check_cancel, update_run
+from app.llm.budget import AccountProvider
+from app.llm.runs import RunCancelled, check_cancel, guard_write, update_run
 
 from .search import research
 
@@ -270,6 +271,7 @@ async def generate(app, run_id, draft_id):
                     research_result = await research(data["hot_topic"])
                     await check_cancel(factory, run_id)
                     data["hot_research"] = research_result
+                    await guard_write(db, run_id)
                     draft.sources = draft.sources + [
                         {
                             "title": f"关联热点 · {data['hot_topic']['title']}",
@@ -283,8 +285,11 @@ async def generate(app, run_id, draft_id):
                     ]
                     run.output = {"draft_id": str(draft.id), "hot_research": research_result}
                     await db.commit()
-                content, usage = await write_draft(app.state.llm, data, run.model)
+                content, usage = await write_draft(
+                    AccountProvider(app.state.llm, factory, settings, run.user_id), data, run.model
+                )
                 await check_cancel(factory, run_id)
+                await guard_write(db, run_id)
                 draft.content, draft.status = content, "succeeded"
                 await db.commit()
                 await update_run(
@@ -296,7 +301,7 @@ async def generate(app, run_id, draft_id):
                     output_tokens=usage["completion_tokens"],
                     finished_at=utcnow(),
                 )
-    except (Exception, asyncio.CancelledError):
+    except (Exception, asyncio.CancelledError) as error:
         async with factory() as db:
             draft = await db.get(ContentDraft, draft_id)
             if draft:
@@ -305,7 +310,9 @@ async def generate(app, run_id, draft_id):
         await update_run(
             factory,
             run_id,
-            status="failed",
+            status="cancelled"
+            if isinstance(error, (RunCancelled, asyncio.CancelledError))
+            else "failed",
             error="文案生成失败，输入已保留，请稍后重试",
             finished_at=utcnow(),
         )

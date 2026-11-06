@@ -50,6 +50,7 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     email_verified: bool
+    is_admin: bool
     nickname: str | None
     created_at: datetime
 
@@ -59,6 +60,7 @@ class UserOut(BaseModel):
             id=user.id,
             email=user.email,
             email_verified=user.email_verified_at is not None,
+            is_admin=user.is_admin,
             nickname=user.nickname,
             created_at=user.created_at,
         )

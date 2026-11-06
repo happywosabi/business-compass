@@ -27,8 +27,12 @@ class DeepSeekProvider:
         thinking: bool | None = None,
         max_tokens: int | None = None,
         attempts: int = 2,
+        before_retry=None,
     ):
         settings = self.settings
+        from app.llm.budget import fit_messages
+
+        messages = fit_messages(messages, tools, settings.ai_input_max_bytes)
         if not settings.deepseek_api_key.get_secret_value():
             raise LLMUnavailable("AI 尚未配置，可以先在档案中填写数字")
         body = {
@@ -48,6 +52,8 @@ class DeepSeekProvider:
         if thinking is not None or model == settings.interview_model:
             body["thinking"] = {"type": "enabled" if thinking else "disabled"}
         for attempt in range(attempts):
+            if attempt and before_retry:
+                await before_retry()
             received = False
             finished = False
             content, reasoning, calls, usage = "", "", {}, {}
