@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { adminRequest, queryString, userState, type AdminAudit, type AdminHotspot, type AdminProfile, type AdminRun, type AdminUser, type Overview, type Page, type SystemState } from '@/api/admin'
+import { adminRequest, queryString, userState, type AdminAudit, type AdminCollection, type AdminHotspot, type AdminProfile, type AdminRun, type AdminUser, type Overview, type Page, type SystemState } from '@/api/admin'
 import { ApiError, errorMessage } from '@/api/client'
 import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import MarkdownText from '@/components/MarkdownText.vue'
@@ -21,6 +21,8 @@ const users = ref<AdminUser[]>([])
 const runs = ref<AdminRun[]>([])
 const profiles = ref<AdminProfile[]>([])
 const hotspots = ref<AdminHotspot[]>([])
+const collections = ref<AdminCollection[]>([])
+const hotView = ref('hotspots')
 const audits = ref<AdminAudit[]>([])
 const cursor = ref<string | null>(null)
 const loading = ref(false)
@@ -40,7 +42,8 @@ const days = ref(7)
 const controller = new AbortController()
 let alive = true
 let requestVersion = 0
-const activeRows = computed(() => ({ users: users.value, runs: runs.value, profiles: profiles.value, hotspots: hotspots.value, audits: audits.value })[section.value] || [])
+const listSection = computed(() => section.value === 'hotspots' ? hotView.value : section.value)
+const activeRows = computed(() => ({ users: users.value, runs: runs.value, profiles: profiles.value, hotspots: hotspots.value, collections: collections.value, audits: audits.value })[listSection.value] || [])
 const statusLabels: Record<string, string> = { active: '正常', disabled: '已停用', running: '进行中', succeeded: '已完成', failed: '失败', cancelled: '已取消', success: '成功', draft: '草稿', archived: '已归档', idea: '构想', preparing: '筹备中', operating: '经营中' }
 const labels = (value: string) => statusLabels[value] || value
 const number = (value: number) => value.toLocaleString('zh-CN')
@@ -62,7 +65,7 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
   }
 }
 function clear() {
-  users.value = []; runs.value = []; profiles.value = []; hotspots.value = []; audits.value = []
+  users.value = []; runs.value = []; profiles.value = []; hotspots.value = []; collections.value = []; audits.value = []
   sensitive.value = null; overview.value = null; system.value = null; dialog.value = null
 }
 async function load(more = false) {
@@ -70,25 +73,36 @@ async function load(more = false) {
   loading.value = true
   error.value = ''
   try {
-    if (section.value === 'overview') overview.value = await call<Overview>(`/overview?days=${days.value}`)
-    else if (section.value === 'system') system.value = await call<SystemState>('/system')
+    if (section.value === 'overview') {
+      const result = await call<Overview>(`/overview?days=${days.value}`)
+      if (alive && version === requestVersion) overview.value = result
+    } else if (section.value === 'system') {
+      const result = await call<SystemState>('/system')
+      if (alive && version === requestVersion) system.value = result
+    }
     else {
       const params: Record<string, string | number | undefined> = { cursor: more ? cursor.value || undefined : undefined }
       if (section.value === 'users') Object.assign(params, { q: search.value, status: filter.value, verified: verified.value })
       if (['runs', 'profiles'].includes(section.value)) params.user_id = userId.value
-      if (section.value === 'runs') Object.assign(params, { status: filter.value, kind: kind.value, model: model.value, since: since.value ? new Date(`${since.value}T00:00:00+08:00`).toISOString() : '', until: until.value ? new Date(new Date(`${until.value}T00:00:00+08:00`).getTime()+86400000).toISOString() : '' })
+      if (section.value === 'runs') Object.assign(params, { status: filter.value, kind: kind.value, model: model.value })
+      if (['runs', 'audits'].includes(section.value)) Object.assign(params, { since: since.value ? new Date(`${since.value}T00:00:00+08:00`).toISOString() : '', until: until.value ? new Date(new Date(`${until.value}T00:00:00+08:00`).getTime()+86400000).toISOString() : '' })
       if (section.value === 'audits') Object.assign(params, { action: search.value, actor_id: actor.value, target: target.value, result: filter.value })
-      const result = await call<Page<AdminUser | AdminRun | AdminProfile | AdminHotspot | AdminAudit>>(`/${section.value}${queryString(params)}`)
+      const result = await call<Page<AdminUser | AdminRun | AdminProfile | AdminHotspot | AdminCollection | AdminAudit>>(`/${listSection.value}${queryString(params)}`)
       if (!alive || version !== requestVersion) return
       cursor.value = result.next_cursor
       if (section.value === 'users') users.value = [...(more ? users.value : []), ...result.items as AdminUser[]]
       if (section.value === 'runs') runs.value = [...(more ? runs.value : []), ...result.items as AdminRun[]]
       if (section.value === 'profiles') profiles.value = [...(more ? profiles.value : []), ...result.items as AdminProfile[]]
-      if (section.value === 'hotspots') hotspots.value = [...(more ? hotspots.value : []), ...result.items as AdminHotspot[]]
+      if (listSection.value === 'hotspots') hotspots.value = [...(more ? hotspots.value : []), ...result.items as AdminHotspot[]]
+      if (listSection.value === 'collections') collections.value = [...(more ? collections.value : []), ...result.items as AdminCollection[]]
       if (section.value === 'audits') audits.value = [...(more ? audits.value : []), ...result.items as AdminAudit[]]
     }
   } catch (e) { if (alive) error.value = errorMessage(e) }
   finally { if (alive && version === requestVersion) loading.value = false }
+}
+function changeHotView() {
+  hotspots.value = []; collections.value = []; cursor.value = null
+  void load()
 }
 
 interface Dialog { title: string; description: string; path: string; data: Record<string, unknown>; quota?: boolean; inspect?: boolean }
@@ -121,7 +135,7 @@ function inspect(profile: AdminProfile) {
   open({ title: '查看用户资料', description: `${profile.name} · 本次查看会记录原因，资料只读。`, path: `/profiles/${profile.id}/inspect`, data: {}, inspect: true })
 }
 async function submit() {
-  if (!dialog.value) return
+  if (!dialog.value || submitting.value) return
   if (reason.value.trim().length < 5) { dialogError.value = '请填写至少 5 字的具体原因'; return }
   submitting.value = true
   dialogError.value = ''
@@ -145,7 +159,7 @@ async function submit() {
   finally { if (alive) submitting.value = false }
 }
 async function moreSensitive() {
-  if (!selectedProfile.value || !sensitiveCursor.value) return
+  if (!selectedProfile.value || !sensitiveCursor.value || submitting.value) return
   submitting.value = true
   try {
     const result = await call<Page<Record<string, unknown>>>(`/profiles/${selectedProfile.value.id}/inspect`, { reason: inspectReason.value, section: inspectSection.value, cursor: sensitiveCursor.value })
@@ -169,33 +183,36 @@ onBeforeUnmount(() => { alive = false; controller.abort(); clear(); reason.value
     <template v-if="section === 'overview' && overview">
       <div class="admin-stats"><article v-for="(stat, i) in stats" :key="stat.label" class="bc-card admin-stat" :class="{ 'admin-stat-accent': stat.accent }" :style="{ animationDelay: `${i*60}ms` }"><div><span>{{ stat.label }}</span><span class="admin-stat-index">0{{ i+1 }}</span></div><AnimatedNumber :value="stat.value" /><p>{{ stat.note }}</p></article></div>
       <section class="bc-card admin-trend"><div class="admin-panel-title"><div><p class="admin-eyebrow">ACTIVITY</p><h2>AI 使用趋势</h2></div><span class="admin-pill">北京时间 · {{ days }} 天</span></div><div class="admin-chart" role="img" :aria-label="`最近${days}天的AI任务趋势`"><div v-for="(point, i) in overview.trend" :key="point.date" class="admin-bar-column" tabindex="0" :aria-label="`${point.date}：${point.runs}次，失败${point.failed}次，${point.tokens}tokens`" :style="{ '--delay': `${i*18}ms` }"><div class="admin-chart-tip">{{ point.date }}<br>{{ point.runs }} 次 · {{ number(point.tokens) }} tokens<br>失败 {{ point.failed }} 次</div><span class="admin-bar-value">{{ point.runs }}</span><div class="admin-bar" :style="{ height: `${Math.max(2, point.runs/maxRuns*150)}px` }"><div v-if="point.failed" :style="{ height: `${point.failed/Math.max(1,point.runs)*100}%` }" /></div><span class="admin-bar-date">{{ i % (days === 30 ? 5 : 1) === 0 ? point.date.slice(5) : '' }}</span></div></div><p class="admin-chart-legend"><i />任务数 <i class="failed" />失败数</p></section>
-      <div class="admin-overview-bottom"><section class="bc-card admin-panel"><p class="admin-eyebrow">SERVICE QUALITY</p><h2>任务质量与用量</h2><strong class="admin-rate">{{ overview.totals.success_rate === null ? '—' : `${(overview.totals.success_rate*100).toFixed(1)}%` }}<small>成功率</small></strong><p class="admin-muted">成功 ÷（成功 + 失败）；取消和进行中单独展示。</p><dl class="admin-dl"><div><dt>失败 / 取消 / 进行中</dt><dd>{{ overview.totals.failed }} / {{ overview.totals.cancelled }} / {{ overview.totals.running }}</dd></div><div><dt>输入 tokens</dt><dd>{{ number(overview.totals.input_tokens) }}</dd></div><div><dt>输出 tokens</dt><dd>{{ number(overview.totals.output_tokens) }}</dd></div></dl></section><section class="bc-card admin-panel"><p class="admin-eyebrow">PUBLIC SOURCES</p><h2>公共热点独立预算</h2><p class="admin-muted">公共采集用量单列，不计入个人 AI 任务。</p><dl class="admin-dl"><div><dt>采集任务</dt><dd>{{ overview.public_hotspots.runs }}</dd></div><div><dt>模型 tokens</dt><dd>{{ number(overview.public_hotspots.llm_tokens) }}</dd></div><div><dt>向量 tokens</dt><dd>{{ number(overview.public_hotspots.embedding_tokens) }}</dd></div></dl><RouterLink to="/admin/hotspots" class="admin-inline-link">管理热点来源 ↗</RouterLink></section></div>
+      <div class="admin-overview-bottom"><section class="bc-card admin-panel"><p class="admin-eyebrow">SERVICE QUALITY</p><h2>任务质量与用量</h2><strong class="admin-rate">{{ overview.totals.success_rate === null ? '—' : `${(overview.totals.success_rate*100).toFixed(1)}%` }}<small>成功率</small></strong><p class="admin-muted">成功 ÷（成功 + 失败）；取消和进行中单独展示。tokens 为已记录用量，未返回用量不代表零费用。</p><dl class="admin-dl"><div><dt>失败 / 取消 / 进行中</dt><dd>{{ overview.totals.failed }} / {{ overview.totals.cancelled }} / {{ overview.totals.running }}</dd></div><div><dt>已记录输入 tokens</dt><dd>{{ number(overview.totals.input_tokens) }}</dd></div><div><dt>已记录输出 tokens</dt><dd>{{ number(overview.totals.output_tokens) }}</dd></div></dl></section><section class="bc-card admin-panel"><p class="admin-eyebrow">PUBLIC SOURCES</p><h2>公共热点独立预算</h2><p class="admin-muted">公共采集用量单列，不计入个人 AI 任务。</p><dl class="admin-dl"><div><dt>采集任务</dt><dd>{{ overview.public_hotspots.runs }}</dd></div><div><dt>已记录模型 tokens</dt><dd>{{ number(overview.public_hotspots.llm_tokens) }}</dd></div><div><dt>已记录向量 tokens</dt><dd>{{ number(overview.public_hotspots.embedding_tokens) }}</dd></div></dl><RouterLink to="/admin/hotspots" class="admin-inline-link">管理热点来源 ↗</RouterLink></section></div>
     </template>
     <template v-if="section === 'system' && system">
       <div class="admin-stats"><article class="bc-card admin-stat"><div>数据库<span class="admin-pill good">正常</span></div><strong class="admin-status-large">已连接</strong><p>应用 {{ system.version }}</p></article><article class="bc-card admin-stat"><div>定时任务<span class="admin-pill" :class="system.worker.stale ? 'bad' : 'good'">{{ system.worker.stale ? '需检查' : '正常' }}</span></div><strong class="admin-status-large">{{ system.worker.stale ? '心跳过期' : '运行中' }}</strong><p>最近心跳 {{ date(system.worker.last_seen) }}</p></article></div>
       <div class="admin-overview-bottom"><section class="bc-card admin-panel"><p class="admin-eyebrow">CONFIGURATION</p><h2>模型与服务</h2><dl class="admin-dl"><div v-for="(value, key) in system.models" :key="key"><dt>{{ { interview: '访谈', report: '报告', embedding: '向量' }[key] || key }}</dt><dd>{{ value }}</dd></div><div v-for="(value, key) in system.configured" :key="key"><dt>{{ { ai: 'AI 密钥', embedding: '向量密钥', mail: '邮件服务' }[key] || key }}</dt><dd><span class="admin-pill" :class="value ? 'good' : 'bad'">{{ value ? '已配置' : '未配置' }}</span></dd></div></dl></section><section class="bc-card admin-panel"><p class="admin-eyebrow">COLLECTION</p><h2>最近采集</h2><dl class="admin-dl"><div><dt>状态</dt><dd>{{ system.last_collection ? labels(system.last_collection.status) : '尚无采集记录' }}</dd></div><div><dt>开始时间</dt><dd>{{ date(system.last_collection?.created_at || null) }}</dd></div><div><dt>完成时间</dt><dd>{{ date(system.last_collection?.finished_at || null) }}</dd></div><div><dt>个人默认额度</dt><dd>{{ system.default_daily_ai_quota }} 次/天</dd></div><div><dt>公共采集上限</dt><dd>{{ system.public_hot_daily_limit }} 次/天</dd></div></dl></section></div>
     </template>
     <template v-if="!['overview', 'system'].includes(section)">
+      <div v-if="section === 'hotspots'" class="bc-card admin-filters"><label>查看<select v-model="hotView" aria-label="热点记录类型" @change="changeHotView"><option value="hotspots">热点来源</option><option value="collections">公共采集记录</option></select></label></div>
       <form v-if="section !== 'hotspots'" class="bc-card admin-filters" @submit.prevent="load()">
         <input v-if="['users','audits'].includes(section)" v-model="search" :placeholder="section === 'users' ? '搜索邮箱或昵称' : '操作类型，如 user.disable'" :aria-label="section === 'users' ? '搜索邮箱或昵称' : '操作类型'">
         <input v-if="['runs','profiles'].includes(section)" v-model="userId" placeholder="用户 ID（可选）" aria-label="用户ID">
         <select v-if="section === 'users'" v-model="filter" aria-label="账号状态"><option value="">全部账号状态</option><option value="active">正常</option><option value="disabled">已停用</option></select>
         <select v-if="section === 'users'" v-model="verified" aria-label="邮箱验证"><option value="">全部验证状态</option><option value="true">已验证</option><option value="false">未验证</option></select>
         <template v-if="section === 'runs'"><select v-model="filter" aria-label="任务状态"><option value="">全部任务状态</option><option v-for="s in ['running','succeeded','failed','cancelled']" :key="s" :value="s">{{ labels(s) }}</option></select><select v-model="kind" aria-label="任务类型"><option value="">全部任务类型</option><option value="interview">访谈</option><option value="report">报告</option><option value="content">文案</option></select><input v-model="model" placeholder="模型名称" aria-label="模型名称"><label>从<input v-model="since" type="date" aria-label="开始日期"></label><label>至<input v-model="until" type="date" aria-label="结束日期"></label></template>
-        <template v-if="section === 'audits'"><input v-model="actor" placeholder="操作人 ID" aria-label="操作人ID"><input v-model="target" placeholder="操作对象 ID" aria-label="操作对象ID"><select v-model="filter" aria-label="操作结果"><option value="">全部结果</option><option value="success">成功</option><option value="failed">失败</option></select></template>
+        <template v-if="section === 'audits'"><label>从<input v-model="since" type="date" aria-label="开始日期"></label><label>至<input v-model="until" type="date" aria-label="结束日期"></label><input v-model="actor" placeholder="操作人 ID" aria-label="操作人ID"><input v-model="target" placeholder="操作对象 ID" aria-label="操作对象ID"><select v-model="filter" aria-label="操作结果"><option value="">全部结果</option><option value="success">成功</option><option value="failed">失败</option></select></template>
         <button class="admin-button primary" :disabled="loading">筛选</button>
       </form>
       <section class="bc-card admin-list" :aria-busy="loading">
-        <div class="admin-list-heading"><h2>{{ title[0] }}</h2><span class="admin-muted">已载入 {{ activeRows.length }} 条</span></div>
+        <div class="admin-list-heading"><h2>{{ listSection === 'collections' ? '公共采集记录' : title[0] }}</h2><span class="admin-muted">已载入 {{ activeRows.length }} 条</span></div>
         <p v-if="loading && !activeRows.length" class="admin-empty" role="status">正在读取记录…</p>
         <p v-else-if="!activeRows.length && !error" class="admin-empty">暂无符合条件的记录</p>
-        <div v-if="users.length" class="admin-table-wrap"><table><thead><tr><th>账号</th><th>状态</th><th>档案 / 存储</th><th>注册 / 最近登录</th><th>管理</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td data-label="账号"><strong>{{ user.email }}</strong><small>{{ user.nickname || user.id }} <span v-if="user.is_admin">· 管理员</span></small></td><td data-label="状态"><span class="admin-pill" :class="user.status === 'active' ? 'good' : 'bad'">{{ labels(user.status) }}</span><small>{{ user.verified ? '邮箱已验证' : '邮箱未验证' }} · 日额度 {{ user.daily_ai_quota ?? '默认' }}<br>{{ user.locked_until ? `锁定至 ${date(user.locked_until)}` : '无登录锁定' }}</small></td><td data-label="档案 / 存储">{{ user.profile_count }} 份<small>{{ bytes(user.storage_bytes) }} / {{ bytes(user.storage_limit) }}</small></td><td data-label="时间">{{ date(user.created_at) }}<small>{{ date(user.last_login_at) }}</small></td><td class="admin-row-actions" data-label="管理"><button @click="userAction(user, user.status === 'active' ? 'disable' : 'enable')">{{ user.status === 'active' ? '停用' : '启用' }}</button><button @click="userAction(user, 'quota')">日额度</button><button @click="userAction(user, 'unlock')">解锁</button><button @click="userAction(user, 'revoke_sessions')">退出所有设备</button></td></tr></tbody></table></div>
-        <div v-if="runs.length" class="admin-table-wrap"><table><thead><tr><th>任务</th><th>状态</th><th>用量 / 耗时</th><th>创建时间</th><th>操作</th></tr></thead><tbody><tr v-for="run in runs" :key="run.id"><td data-label="任务"><strong>{{ { interview: 'AI 访谈', content: '文案创作', report: '报告解读' }[run.kind] || run.kind }}</strong><small>{{ run.model }}<br>用户 {{ run.user_id }}<br>任务 {{ run.id }}</small></td><td data-label="状态"><span class="admin-pill" :class="run.status === 'failed' ? 'bad' : run.status === 'succeeded' ? 'good' : ''">{{ labels(run.status) }}</span><small v-if="run.error">{{ run.error }}</small></td><td data-label="用量 / 耗时">{{ number(run.input_tokens) }} 入 / {{ number(run.output_tokens) }} 出<small>{{ run.duration_seconds }} 秒</small></td><td data-label="创建时间">{{ date(run.created_at) }}</td><td data-label="操作"><button v-if="run.status === 'running'" class="admin-inline-link" @click="open({ title: '取消 AI 任务', description: '已保存的数据和用量记录会保留。', path: `/runs/${run.id}/cancel`, data: {} })">取消任务</button><span v-else class="admin-muted">已结束</span></td></tr></tbody></table></div>
+        <div v-if="users.length" class="admin-table-wrap"><table><thead><tr><th>账号</th><th>状态</th><th>档案 / 存储</th><th>注册 / 最近登录</th><th>管理</th></tr></thead><tbody><tr v-for="user in users" :key="user.id"><td data-label="账号"><strong>{{ user.email }}</strong><small>{{ user.nickname || user.id }} <span v-if="user.is_admin">· 管理员</span></small></td><td data-label="状态"><span class="admin-pill" :class="user.status === 'active' ? 'good' : 'bad'">{{ labels(user.status) }}</span><small>{{ user.verified ? '邮箱已验证' : '邮箱未验证' }} · 今日 AI {{ user.today_ai_runs }} / {{ user.daily_ai_limit }} 次{{ user.daily_ai_quota === null ? '（默认）' : '' }}<br>{{ user.locked_until ? `锁定至 ${date(user.locked_until)}` : '无登录锁定' }}</small></td><td data-label="档案 / 存储">{{ user.profile_count }} 份<small>{{ bytes(user.storage_bytes) }} / {{ bytes(user.storage_limit) }}</small></td><td data-label="时间">{{ date(user.created_at) }}<small>{{ date(user.last_login_at) }}</small></td><td class="admin-row-actions" data-label="管理"><button @click="userAction(user, user.status === 'active' ? 'disable' : 'enable')">{{ user.status === 'active' ? '停用' : '启用' }}</button><button @click="userAction(user, 'quota')">日额度</button><button @click="userAction(user, 'unlock')">解锁</button><button @click="userAction(user, 'revoke_sessions')">退出所有设备</button></td></tr></tbody></table></div>
+        <div v-if="runs.length" class="admin-table-wrap"><table><thead><tr><th>任务</th><th>状态</th><th>已记录用量 / 耗时</th><th>创建时间</th><th>操作</th></tr></thead><tbody><tr v-for="run in runs" :key="run.id"><td data-label="任务"><strong>{{ { interview: 'AI 访谈', content: '文案创作', report: '报告解读' }[run.kind] || run.kind }}</strong><small>{{ run.model }}<br>用户 {{ run.user_id }}<br>任务 {{ run.id }}</small></td><td data-label="状态"><span class="admin-pill" :class="run.status === 'failed' ? 'bad' : run.status === 'succeeded' ? 'good' : ''">{{ labels(run.status) }}</span><small v-if="run.error">{{ run.error }}</small></td><td data-label="已记录用量 / 耗时">{{ number(run.input_tokens) }} 入 / {{ number(run.output_tokens) }} 出<small>{{ run.duration_seconds }} 秒</small></td><td data-label="创建时间">{{ date(run.created_at) }}</td><td data-label="操作"><button v-if="run.status === 'running'" class="admin-inline-link" @click="open({ title: '取消 AI 任务', description: '已保存的数据和用量记录会保留。', path: `/runs/${run.id}/cancel`, data: {} })">取消任务</button><span v-else class="admin-muted">已结束</span></td></tr></tbody></table></div>
         <div v-if="profiles.length" class="admin-table-wrap"><table><thead><tr><th>档案</th><th>归属</th><th>状态</th><th>创建时间</th><th>诊断</th></tr></thead><tbody><tr v-for="profile in profiles" :key="profile.id"><td data-label="档案"><strong>{{ profile.name }}</strong><small>{{ profile.industry }} · 修订 {{ profile.revision }}</small></td><td data-label="归属"><small>{{ profile.user_id }}</small></td><td data-label="状态"><span class="admin-pill">{{ profile.deleted_at ? '回收站' : labels(profile.status) }}</span><small>{{ labels(profile.stage) }}</small></td><td data-label="创建时间">{{ date(profile.created_at) }}</td><td data-label="诊断"><button class="admin-inline-link" @click="inspect(profile)">只读查看 ↗</button></td></tr></tbody></table></div>
         <div v-if="hotspots.length" class="admin-table-wrap"><table><thead><tr><th>来源</th><th>自动状态</th><th>人工状态</th><th>采集时间</th><th>管理</th></tr></thead><tbody><tr v-for="hotspot in hotspots" :key="hotspot.id"><td data-label="来源"><strong>{{ hotspot.title }}</strong><small>{{ hotspot.channel }}</small></td><td data-label="自动状态"><span class="admin-pill">{{ hotspot.expired ? '已过期' : hotspot.safe ? '筛选通过' : '未通过' }}</span></td><td data-label="人工状态"><span class="admin-pill" :class="hotspot.manually_hidden ? 'bad' : 'good'">{{ hotspot.manually_hidden ? '已下架' : '未下架' }}</span></td><td data-label="采集时间">{{ date(hotspot.fetched_at) }}</td><td data-label="管理"><button class="admin-inline-link" @click="open({ title: hotspot.manually_hidden ? '恢复来源' : '下架来源', description: '恢复后仍需满足自动筛选和时效规则。', path: `/hotspots/${hotspot.id}/visibility`, data: { hidden: !hotspot.manually_hidden, expected: hotspot.manually_hidden } })">{{ hotspot.manually_hidden ? '恢复' : '下架' }}</button></td></tr></tbody></table></div>
+        <div v-if="collections.length" class="admin-table-wrap"><table><thead><tr><th>采集 / 模型</th><th>状态</th><th>调用次数</th><th>已记录 tokens</th><th>开始 / 完成</th></tr></thead><tbody><tr v-for="collection in collections" :key="collection.id"><td data-label="采集 / 模型"><strong>公共热点采集</strong><small>{{ collection.model }}<br>{{ collection.embedding_model }}<br>{{ collection.id }}</small></td><td data-label="状态"><span class="admin-pill" :class="collection.status === 'failed' ? 'bad' : collection.status === 'succeeded' ? 'good' : ''">{{ labels(collection.status) }}</span><small v-if="collection.error">{{ collection.error }}</small></td><td data-label="调用次数">模型 {{ collection.llm_calls }} 次<small>向量 {{ collection.embedding_calls }} 次</small></td><td data-label="已记录 tokens">{{ number(collection.input_tokens) }} 入 / {{ number(collection.output_tokens) }} 出<small>向量 {{ number(collection.embedding_tokens) }}</small></td><td data-label="开始 / 完成">{{ date(collection.created_at) }}<small>{{ date(collection.finished_at) }}</small></td></tr></tbody></table></div>
         <div v-if="audits.length" class="admin-table-wrap"><table><thead><tr><th>操作 / 对象</th><th>原因 / 变更</th><th>操作人 / IP</th><th>结果 / 时间</th></tr></thead><tbody><tr v-for="audit in audits" :key="audit.id"><td data-label="操作 / 对象"><strong>{{ audit.action }}</strong><small>{{ audit.target }}</small></td><td data-label="原因 / 变更">{{ audit.reason }}<details v-if="Object.keys(audit.changes || {}).length"><summary>查看变更</summary><pre>{{ pretty(audit.changes) }}</pre></details></td><td data-label="操作人 / IP"><small>{{ audit.actor_id || '服务器 CLI' }}<br>{{ audit.ip || '—' }}</small></td><td data-label="结果 / 时间"><span class="admin-pill" :class="audit.result === 'success' ? 'good' : 'bad'">{{ labels(audit.result) }}</span><small>{{ date(audit.created_at) }}</small></td></tr></tbody></table></div>
         <div v-if="cursor" class="admin-pagination"><button class="admin-button" :disabled="loading" @click="load(true)">{{ loading ? '正在加载…' : '加载更多记录 ↓' }}</button></div>
       </section>
+      <p v-if="['runs', 'hotspots'].includes(section)" class="admin-footnote">tokens 为服务返回的已记录用量；未返回用量不代表实际零费用。</p>
       <p class="admin-footnote">{{ section === 'audits' ? '审计记录保留 180 天，后台只读。' : section === 'profiles' ? '用户资料按次填写查看原因，退出或锁定后清空。' : '时间均为北京时间。' }}</p>
     </template>
     <van-popup :show="!!dialog" round position="center" class="admin-modal" :close-on-click-overlay="!submitting" @update:show="value => { if (!value && !submitting) dialog = null }">

@@ -241,6 +241,7 @@ async def overview(db: DB, admin: Admin, days: int = Query(7, ge=7, le=30)):
 async def users(
     db: DB,
     admin: Admin,
+    settings: AppSettings,
     q: str = Query("", max_length=120),
     status: Literal["active", "disabled"] | None = None,
     verified: bool | None = None,
@@ -264,6 +265,20 @@ async def users(
             select(ResourceUsage).where(ResourceUsage.user_id.in_([r.id for r in rows]))
         )
     }
+    today = (
+        utcnow()
+        .astimezone(ZoneInfo("Asia/Shanghai"))
+        .replace(hour=0, minute=0, second=0, microsecond=0)
+    )
+    daily_runs = dict(
+        (
+            await db.execute(
+                select(AIRun.user_id, func.count())
+                .where(AIRun.user_id.in_([r.id for r in rows]), AIRun.created_at >= today)
+                .group_by(AIRun.user_id)
+            )
+        ).all()
+    )
     return page(
         rows,
         limit,
@@ -271,6 +286,10 @@ async def users(
             **fields(u, "id", "email", "nickname", "created_at", "last_login_at"),
             **user_state(u),
             "verified": u.email_verified_at is not None,
+            "today_ai_runs": daily_runs.get(u.id, 0),
+            "daily_ai_limit": u.daily_ai_quota
+            if u.daily_ai_quota is not None
+            else settings.ai_daily_quota,
             "storage_bytes": usage[u.id].storage_bytes if u.id in usage else 0,
             "profile_count": usage[u.id].profile_count if u.id in usage else 0,
             "storage_limit": (100 if u.email_verified_at else 10) * 1024 * 1024,
@@ -528,6 +547,32 @@ async def hotspots(db: DB, admin: Admin, cursor: str | None = None, limit: int =
     )
 
 
+@router.get("/collections")
+async def collections(db: DB, admin: Admin, cursor: str | None = None, limit: int = Limit):
+    rows = await rows_page(db, select(HotCollectionRun), HotCollectionRun, cursor, limit)
+    return page(
+        rows,
+        limit,
+        lambda row: {
+            **fields(
+                row,
+                "id",
+                "status",
+                "model",
+                "embedding_model",
+                "input_tokens",
+                "output_tokens",
+                "embedding_tokens",
+                "llm_calls",
+                "embedding_calls",
+                "created_at",
+                "finished_at",
+            ),
+            "error": "采集未完成，请检查来源和服务配置" if row.error else None,
+        },
+    )
+
+
 @router.post("/hotspots/{topic_id}/visibility")
 async def visibility(topic_id: UUID, body: Hide, request: Request, db: DB, admin: Admin):
     row = await db.scalar(select(HotTopic).where(HotTopic.id == topic_id).with_for_update())
@@ -557,6 +602,8 @@ async def audits(
     actor_id: UUID | None = None,
     target: str = Query("", max_length=100),
     result: Literal["success", "failed"] | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
     cursor: str | None = None,
     limit: int = Limit,
 ):
@@ -569,6 +616,10 @@ async def audits(
     ]:
         if value is not None:
             query = query.where(column == value)
+    if since:
+        query = query.where(AdminAudit.created_at >= since)
+    if until:
+        query = query.where(AdminAudit.created_at < until)
     rows = await rows_page(db, query, AdminAudit, cursor, limit)
     return page(
         rows,

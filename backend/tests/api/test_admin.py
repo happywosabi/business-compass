@@ -1,14 +1,24 @@
 """后台权限、会话失效、并发控制、隐私和审计回归。"""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import func, select, update
 
 from app.admin.cli import set_admin
 from app.db.base import utcnow
-from app.db.models import AdminAudit, AIRun, Conversation, HotTopic, Message, User, UserSession
+from app.db.models import (
+    AdminAudit,
+    AIRun,
+    Conversation,
+    HotCollectionRun,
+    HotTopic,
+    Message,
+    User,
+    UserSession,
+)
 from tests.api.helpers import login, register
 from tests.api.test_profiles import create_profile
 
@@ -45,6 +55,7 @@ async def test_gate_origin_cache_and_no_public_privilege(client, db):
         "runs",
         "profiles",
         "hotspots",
+        "collections",
         "audits",
         "system",
     ]:
@@ -205,9 +216,91 @@ async def test_read_diagnostics_redact_internal_protocol(client, db, admin):
                 headers=HEADERS,
             )
         ).status_code == 200
-    for path in ["users", "runs", "profiles", "hotspots", "audits"]:
+    for path in ["users", "runs", "profiles", "hotspots", "collections", "audits"]:
         assert (await client.get(f"/api/admin/{path}?limit=101")).status_code == 422
         assert (await client.get(f"/api/admin/{path}?cursor=broken")).status_code == 422
+
+
+async def test_daily_user_usage_uses_beijing_midnight(client, db, admin, monkeypatch, app):
+    await unlock(client)
+    now = datetime(2026, 11, 6, 17, tzinfo=ZoneInfo("Asia/Shanghai"))
+    midnight = now.replace(hour=0)
+    monkeypatch.setattr("app.admin.router.utcnow", lambda: now)
+    profile = await create_profile(client)
+    for created_at, status in [
+        (midnight - timedelta(microseconds=1), "succeeded"),
+        (midnight, "failed"),
+        (now, "cancelled"),
+    ]:
+        db.add(
+            AIRun(
+                user_id=admin.id,
+                profile_id=UUID(profile["id"]),
+                request_id=uuid4(),
+                kind="interview",
+                status=status,
+                model="fake",
+                input={},
+                lease_until=now,
+                created_at=created_at,
+            )
+        )
+    await db.commit()
+    row = (await client.get("/api/admin/users")).json()["items"][0]
+    assert row["today_ai_runs"] == 2
+    assert row["daily_ai_limit"] == app.state.settings.ai_daily_quota
+    await db.execute(update(User).values(daily_ai_quota=0))
+    await db.commit()
+    row = (await client.get("/api/admin/users")).json()["items"][0]
+    assert row["daily_ai_limit"] == 0 and row["today_ai_runs"] == 2
+
+
+async def test_audit_time_range_and_collection_history(client, db, admin):
+    await unlock(client)
+    start = datetime(2026, 11, 6, tzinfo=ZoneInfo("Asia/Shanghai"))
+    for created_at in [start - timedelta(microseconds=1), start, start + timedelta(days=1)]:
+        db.add(
+            AdminAudit(
+                actor_id=admin.id,
+                action="range.test",
+                target="test",
+                reason="检查时间范围边界",
+                created_at=created_at,
+            )
+        )
+    for i in range(3):
+        db.add(
+            HotCollectionRun(
+                status="failed",
+                model="fake",
+                embedding_model="fake-embedding",
+                input_tokens=i,
+                error="PRIVATE_PROVIDER_ERROR",
+                created_at=start,
+            )
+        )
+    await db.commit()
+    response = await client.get(
+        "/api/admin/audits",
+        params={
+            "action": "range.test",
+            "since": start.isoformat(),
+            "until": (start + timedelta(days=1)).isoformat(),
+        },
+    )
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 1
+    assert datetime_value(response.json()["items"][0]["created_at"]) == start
+    response = await client.get("/api/admin/collections?limit=2")
+    assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
+    assert "PRIVATE_PROVIDER_ERROR" not in response.text
+    rows = response.json()["items"]
+    assert len(rows) == 2 and response.json()["next_cursor"]
+    response = await client.get(
+        "/api/admin/collections", params={"limit": 2, "cursor": response.json()["next_cursor"]}
+    )
+    assert len(response.json()["items"]) == 1 and not response.json()["next_cursor"]
+    assert len({r["id"] for r in rows + response.json()["items"]}) == 3
 
 
 async def test_hotspot_hidden_survives_automatic_refresh(client, db, admin):

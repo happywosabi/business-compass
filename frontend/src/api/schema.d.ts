@@ -191,6 +191,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Collections */
+        get: operations["collections_api_admin_collections_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/hotspots/{topic_id}/visibility": {
         parameters: {
             query?: never;
@@ -2768,6 +2785,38 @@ export interface operations {
             };
         };
     };
+    collections_api_admin_collections_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     visibility_api_admin_hotspots__topic_id__visibility_post: {
         parameters: {
             query?: never;
@@ -2810,6 +2859,8 @@ export interface operations {
                 actor_id?: string | null;
                 target?: string;
                 result?: ("success" | "failed") | null;
+                since?: string | null;
+                until?: string | null;
                 cursor?: string | null;
                 limit?: number;
             };
