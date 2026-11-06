@@ -68,7 +68,8 @@ def safe_url(url: str | None) -> bool:
 
 
 def plain(value: str, limit: int = 1000) -> str:
-    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]*>", "", value))).strip()[:limit]
+    # 不跨越嵌套的 <，避免未闭合标签反复扫描造成二次方耗时。
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^<>]*>", "", value))).strip()[:limit]
 
 
 def article_url(link: str) -> str:

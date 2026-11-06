@@ -35,7 +35,7 @@ async def read_source(client: httpx.AsyncClient, url: str) -> bytes:
                 if response.headers.get("content-encoding", "identity").lower() != "identity":
                     raise SourceFailure("encoding_error")
                 length = response.headers.get("content-length", "")
-                if length.isdecimal() and int(length) > MAX_BYTES:
+                if length.isdecimal() and (len(length) > 7 or int(length) > MAX_BYTES):
                     raise SourceFailure("oversized")
                 body = bytearray()
                 async for chunk in response.aiter_bytes():

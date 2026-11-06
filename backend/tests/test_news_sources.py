@@ -100,6 +100,13 @@ async def test_rejects_large_compressed_and_slow_responses(monkeypatch):
             await fetch.read_source(client, "https://example.com/feed")
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(
+            lambda r: httpx.Response(200, headers={"Content-Length": "9" * 5000})
+        )
+    ) as client:
+        with pytest.raises(fetch.SourceFailure, match="oversized"):
+            await fetch.read_source(client, "https://example.com/feed")
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
             lambda r: httpx.Response(
                 200, content=gzip.compress(b"x" * 10000), headers={"Content-Encoding": "gzip"}
             )
@@ -164,3 +171,8 @@ async def test_diagnostics_only_keep_allowlisted_metadata():
     }
     assert "SECRET" not in str(result)
     assert public_diagnostics({"stage": [], "sources": "SECRET"}) == {"sources": []}
+
+
+async def test_plain_bounds_unclosed_tags_without_repeated_scanning():
+    assert search.plain("<" * fetch.MAX_BYTES, 1000) == "<" * 1000
+    assert search.plain("<b>水果</b> &amp; <i>咖啡</i>") == "水果 & 咖啡"
